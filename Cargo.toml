@@ -1,0 +1,32 @@
+[package]
+name = "tgbainstaller"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.75"
+fltk = { version = "^1.4", features = ["fltk-bundled"] }
+curl = { version = "0.4.44", features = ["ssl", "static-curl", "static-ssl"] }
+hex = "0.4.3"
+lazy_static = "1.4.0"
+rust-embed = "6.8.1"
+sha2 = "0.10.7"
+zstd = "0.12.4"
+zip = { version = "0.6.5", features = ["deflate"], default-features = false }
+tar = "0.4.40"
+reqwest = "0.11.20"
+tokio = { version = "1.32.0", features = ["full"] }
+scraper = "0.17.1"
+pomsky-macro = "0.10.0"
+regex = "1.9.5"
+serde = { version = "1.0.188", features = ["derive"] }
+pep440_rs = "0.3.11"
+pep508_rs = "0.2.1"
+url = "2.4.1"
+
+[profile.release]
+strip = true
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"

@@ -7,6 +7,7 @@
 // mod style;
 // mod winapp;
 pub mod pypip;
+pub mod index;
 
 // use winapp::main_app;
 
@@ -69,8 +70,10 @@ async fn main() -> Result<(), Error> {
     // download(&client).await?;
 
     
-    use pypip::project::get_project_index;
+    use index::get_project_index;
     get_project_index(&client).await?;
+
+    // println!("{}", "a__b_c".replace("_", "-"));
 
     Ok(())
 }

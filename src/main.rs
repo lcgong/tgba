@@ -7,7 +7,7 @@
 // mod style;
 // mod winapp;
 pub mod pypip;
-pub mod index;
+pub mod pyenv;
 
 // use winapp::main_app;
 
@@ -54,24 +54,25 @@ async fn download(client: &reqwest::Client) -> Result<(), Error> {
 }
 
 
-fn get_pip_user_agent() -> String {
-    // pip/23.2.1 {"ci":null,"cpu":"AMD64","implementation":{"name":"CPython","version":"3.11.4"},"installer":{"name":"pip","version":"23.2.1"},"openssl_version":"OpenSSL 1.1.1u  30 May 2023","python":"3.11.4","rustc_version":"1.72.1","setuptools_version":"65.5.0","system":{"name":"Windows","release":"10"}}
-    format!("pip/{}", PIP_VERSION)
-}
+
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    let client = reqwest::Client::builder()
-        .user_agent(get_pip_user_agent())
-        .build()?;
-
+    // use pyenv::installer::get_pip_user_agent;
     
+    // let client = reqwest::Client::builder()
+    //     .user_agent(get_pip_user_agent())
+    //     .build()?;
+    // use pyenv::index::get_project_index;
+    // get_project_index(&client).await?;
+
+    pyenv::installer::main().await?;
 
     // download(&client).await?;
 
     
-    use index::get_project_index;
-    get_project_index(&client).await?;
+    // use pyenv::index::get_project_index;
+    // get_project_index(&client).await?;
 
     // println!("{}", "a__b_c".replace("_", "-"));
 

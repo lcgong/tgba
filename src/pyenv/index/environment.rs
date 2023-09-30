@@ -1,40 +1,40 @@
 
 use std::collections::HashMap;
-use super::link::WheelInfo;
+// use super::link::WheelInfo;
 
-pub struct TargetEnv {
-    python_version: String,
-    support_tags_map: HashMap<String, u32>,
-}
+// pub struct TargetEnv {
+//     python_version: String,
+//     support_tags_map: HashMap<String, u32>,
+// }
 
-impl TargetEnv {
-    pub fn new() -> Self {
-        let mut support_tags_map = HashMap::new();
-        for (i, tag) in SUPPORT_TAGS.iter().enumerate() {
-            support_tags_map.insert(tag.to_string(), i as u32);
-        }
+// impl TargetEnv {
+//     pub fn new() -> Self {
+//         let mut support_tags_map = HashMap::new();
+//         for (i, tag) in SUPPORT_TAGS.iter().enumerate() {
+//             support_tags_map.insert(tag.to_string(), i as u32);
+//         }
 
-        TargetEnv {
-            python_version: "3.11.5".to_string(),
-            support_tags_map,
-        }
-    }
+//         TargetEnv {
+//             python_version: "3.11.5".to_string(),
+//             support_tags_map,
+//         }
+//     }
 
-    pub fn python_version(&self) -> &str {
-        &self.python_version
-    }
+//     pub fn python_version(&self) -> &str {
+//         &self.python_version
+//     }
 
-    pub fn get_best_tag_rank(&self, wheel: &WheelInfo) -> Option<u32> {
-        let mut ranks = Vec::new();
-        for tag in wheel.tags() {
-            if let Some(i) = self.support_tags_map.get(tag.as_str()) {
-                ranks.push(*i);
-            }
-        }
+//     pub fn get_best_tag_rank(&self, wheel: &WheelInfo) -> Option<u32> {
+//         let mut ranks = Vec::new();
+//         for tag in wheel.tags() {
+//             if let Some(i) = self.support_tags_map.get(tag.as_str()) {
+//                 ranks.push(*i);
+//             }
+//         }
 
-        ranks.iter().min().copied()
-    }
-}
+//         ranks.iter().min().copied()
+//     }
+// }
 
 
 static SUPPORT_TAGS: [&str; 39] = [

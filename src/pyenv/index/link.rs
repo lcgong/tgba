@@ -3,7 +3,8 @@ use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
 use url::Url;
 
-use super::utils::canonicalize_name;
+use super::super::utils::{canonicalize_name, split_filename_extension};
+
 
 #[derive(Debug)]
 pub struct PackageLink {
@@ -11,9 +12,9 @@ pub struct PackageLink {
     requires_python: Option<String>,
     yanked_reason: Option<String>,
     hash: Option<(String, String)>, // (hash_method, hash_code)
-    file_base: String,
-    file_ext: String,
-    pkg_version: String,
+    filename_base: String,
+    filename_extension: String,
+    package_version: String,
     wheel_info: Option<WheelInfo>,
 }
 
@@ -22,45 +23,67 @@ impl PackageLink {
         self.requires_python.as_deref()
     }
 
-    pub fn file_base(&self) -> &str {
-        &self.file_base
+    pub fn filename_base(&self) -> &str {
+        &self.filename_base
     }
 
-    pub fn file_ext(&self) -> &str {
-        &self.file_ext
+    pub fn filename_extension(&self) -> &str {
+        &self.filename_extension
     }
 
-    pub fn wheel_info(&self) -> Option<&WheelInfo> {
-        self.wheel_info.as_ref()
-    }
+    // pub fn wheel_info(&self) -> Option<&WheelInfo> {
+    //     self.wheel_info.as_ref()
+    // }
 
     pub fn package_version(&self) -> &str {
-        &self.pkg_version
+        &self.package_version
+    }
+
+    pub fn is_wheel(&self) -> bool {
+        self.wheel_info.is_some()
+    }
+
+    pub fn wheel_tags(&self) -> Option<Vec<String>> {
+        let Some(wheel) = &self.wheel_info else {
+            return None;
+        };
+
+        let mut tags = Vec::new();
+        for ver in &wheel.pyversions {
+            for abi in &wheel.abis {
+                for plat in &wheel.plats {
+                    tags.push(format!("{}-{}-{}", ver, abi, plat));
+                }
+            }
+        }
+
+        Some(tags)
+
     }
 }
 
 #[derive(Debug)]
-pub struct WheelInfo {
+struct WheelInfo {
     pyversions: Vec<String>,
     abis: Vec<String>,
     plats: Vec<String>,
     build: Option<String>,
 }
 
-impl WheelInfo {
-    pub fn tags(&self) -> Vec<String> {
-        let mut result = Vec::new();
-        for ver in &self.pyversions {
-            for abi in &self.abis {
-                for plat in &self.plats {
-                    result.push(format!("{}-{}-{}", ver, abi, plat));
-                }
-            }
-        }
+// impl WheelInfo {
+//     pub fn tags(&self) -> Vec<String> {
+//         let mut result = Vec::new();
+//         for ver in &self.pyversions {
+//             for abi in &self.abis {
+//                 for plat in &self.plats {
+//                     result.push(format!("{}-{}-{}", ver, abi, plat));
+//                 }
+//             }
+//         }
 
-        result
-    }
-}
+//         result
+//     }
+// }
 
 fn parse_wheel_info(file_base: &str) -> Result<(String, WheelInfo), Error> {
     lazy_static! {
@@ -122,9 +145,9 @@ pub fn parse_link_from_url(
         requires_python,
         yanked_reason,
         hash,
-        file_base,
-        file_ext,
-        pkg_version: prj_ver,
+        filename_base: file_base,
+        filename_extension: file_ext,
+        package_version: prj_ver,
         wheel_info,
     })
 }
@@ -146,14 +169,16 @@ fn parse_link_hash(url_fragment: Option<&str>) -> Option<(String, String)> {
     Some((caps[1].to_string(), (caps[2].to_string())))
 }
 
-fn split_name_version(filename: &str, canonical_name: &str) -> Option<usize> {
+/// 从打包的文件名拆分出版本信息。
+/// 例如：pkg_name-1.2.3.tar.gz，pkg-name-1.2.3.tar.gz
+fn split_version_from_filename(filename: &str, canonical_name: &str) -> Option<usize> {
     for (i, ch) in filename.chars().enumerate() {
         if ch != '-' {
             continue;
         }
 
         if canonicalize_name(&filename[..i]) == canonical_name {
-            return Some(i);
+            return Some(i + 1);
         }
     }
     None
@@ -163,32 +188,69 @@ fn parse_url_file_name(
     url: &str,
     canonical_name: &str,
 ) -> Result<(String, String, String, Option<WheelInfo>), Error> {
+    // 从url拆分出文件名
     let splits = url.rsplit_once('/').unwrap();
     let file_name = splits.1;
 
-    let Some(mut sep) = file_name.rfind('.') else {
-        bail!("invalid filename: {}", file_name);
-    };
+    // 从文件名拆分出文件名后缀
+    let (filename_base, filename_ext) = split_filename_extension(&file_name)?;
 
-    if file_name[..sep].to_lowercase().ends_with(".tar") {
-        sep -= 4;
-    }
+    let (package_version, wheel) = if is_wheel_file(filename_ext) {
+        let (package_version, wheel) = parse_wheel_info(filename_base)?;
 
-    let (file_base, file_ext) = (&file_name[..sep], &file_name[sep..]);
-
-    let (prj_ver, wheel) = if file_ext == ".whl" {
-        let (prj_ver, wheel) = parse_wheel_info(file_base)?;
-
-        (prj_ver, Some(wheel))
+        (package_version, Some(wheel))
     } else {
-        let Some(sep) = split_name_version(file_base, canonical_name) else {
-            panic!("{} does not match {}", file_base, canonical_name)
+        if !is_archive_extension(filename_ext) {
+            bail!("no support extension: {}", file_name);
+        }
+
+        let Some(version_start) = split_version_from_filename(filename_base, canonical_name) else {
+            panic!("{} does not match {}", filename_base, canonical_name)
         };
 
-        let prj_ver = file_base[(sep + 1)..].to_string();
+        let package_version = filename_base[version_start..].to_string();
 
-        (prj_ver, None)
+        (package_version, None)
     };
 
-    Ok((file_base.to_string(), file_ext.to_string(), prj_ver, wheel))
+    Ok((
+        filename_base.to_string(),
+        filename_ext.to_string(),
+        package_version,
+        wheel,
+    ))
 }
+
+
+
+lazy_static! {
+    static ref WHEEL_EXTENSION: &'static str = ".whl";
+}
+
+#[inline]
+fn is_wheel_file(filename_ext: &str) -> bool {
+    filename_ext.to_lowercase() == *WHEEL_EXTENSION
+}
+
+#[inline]
+fn is_archive_extension(extension: &str) -> bool {
+    let extension = extension.to_lowercase();
+    lazy_static! {
+        static ref SUPPORT_EXTENSIONS: [&'static str; 11]  = [
+            ".tar.gz", ".tgz", ".tar", // tar
+            ".zip", // zip
+            ".tar.bz2", ".tbz", // bz2
+            ".tar.xz", ".txz", ".tlz", ".tar.lz", ".tar.lzma", // xz
+        ];
+    };
+
+    for ext in SUPPORT_EXTENSIONS.into_iter() {
+        if extension == ext {
+            return true;
+        }
+    }
+
+    false
+}
+
+

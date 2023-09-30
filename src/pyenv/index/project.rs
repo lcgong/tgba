@@ -1,55 +1,117 @@
-use anyhow::{bail, Error};
+use anyhow::{bail, Error, Result};
 use pep508_rs::Requirement;
 use scraper::{Html, Selector};
 use url::Url;
 
-use super::environment::TargetEnv;
-use super::link::{parse_link_from_url, PackageLink};
-use super::utils::canonicalize_name;
+use super::super::installer::Installer;
+use super::link::{self, parse_link_from_url, PackageLink};
+use crate::pyenv::utils::canonicalize_name;
 
 pub struct ProjectIndex {
+    index_url: String,
     project_name: String,
+    project_url: String,
     canonical_name: String,
     links: Vec<PackageLink>,
 }
 
-pub async fn get_project_index(client: &reqwest::Client) -> Result<(), Error> {
-    let project_name = "jupyterlab";
-    let target_env = TargetEnv::new();
+impl ProjectIndex {
+    pub fn new(index_url: &str, project_name: &str) -> Self {
+        let canonical_name = canonicalize_name(project_name);
 
-    let project_url = "https://pypi.tuna.tsinghua.edu.cn/simple/jupyterlab/";
-    // let resp = client.get(url).send().await?;
-    // let page = resp.text().await?;
+        let project_url = if index_url.ends_with('/') {
+            format!("{}{}/", index_url, canonical_name)
+        } else {
+            format!("{}/{}/", index_url, canonical_name)
+        };
 
-    let mut project_index = ProjectIndex {
-        project_name: project_name.to_string(),
-        canonical_name: canonicalize_name(project_name),
-        links: Vec::new(),
-    };
+        ProjectIndex {
+            index_url: index_url.to_string(),
+            project_name: project_name.to_string(),
+            project_url,
+            canonical_name,
+            links: Vec::new(),
+        }
+    }
 
-    use std::str::FromStr;
+    pub fn project_url(&self) -> &str {
+        &self.project_url
+    }
+}
 
-    let requirement = "torch~=2.0.0";
-    let requirement = Requirement::from_str(requirement)?;
+pub async fn download_requirement(installer: &Installer, requirement: &Requirement) -> Result<()>{
+
+    // let requirements = get_requirements(&installer).await?;
+
+    Ok(())
+}
+
+async fn get_project_index(installer: &Installer, requirement: &Requirement) -> Result<()> {
+    let project_name = requirement.name.as_str();
+
+    let index_url = "https://pypi.tuna.tsinghua.edu.cn/simple";
+
+    let mut project_index = ProjectIndex::new(index_url, project_name);
+
+    // use std::str::FromStr;
+    // let requirement = "torch~=2.0.0";
+    // let requirement = Requirement::from_str(requirement)?;
 
     println!(
         "package-name: {}, extras: {:?}, python_version: {:?}",
         requirement.name, requirement.extras, requirement.marker,
     );
 
-    parse_index_html_page(&mut project_index, project_url, PAGE_CONTENT2)?;
-    let candidates = find_candidates_links(&target_env, &project_index, &requirement)?;
+    // let resp = client.get(url).send().await?;
+    // let page = resp.text().await?;
 
-    for link in candidates {
-        println!("link: {} {}", link.package_version(), link.file_base());
+    parse_index_html_page(&mut project_index, PAGE_CONTENT2)?;
+
+    // let candidates = find_candidates_links(installer, &project_index, &requirement)?;
+
+    for link in find_candidates_links(installer, &project_index, &requirement)? {
+        println!("link: {} {}", link.package_version(), link.filename_base());
     }
 
     Ok(())
 }
 
+// pub async fn get_project_index(client: &reqwest::Client) -> Result<(), Error> {
+//     let project_name = "jupyterlab";
+//     let target_env = TargetEnv::new();
+
+//     let project_url = "https://pypi.tuna.tsinghua.edu.cn/simple/jupyterlab/";
+//     // let resp = client.get(url).send().await?;
+//     // let page = resp.text().await?;
+
+//     let mut project_index = ProjectIndex {
+//         project_name: project_name.to_string(),
+//         canonical_name: canonicalize_name(project_name),
+//         links: Vec::new(),
+//     };
+
+//     use std::str::FromStr;
+
+//     let requirement = "torch~=2.0.0";
+//     let requirement = Requirement::from_str(requirement)?;
+
+//     println!(
+//         "package-name: {}, extras: {:?}, python_version: {:?}",
+//         requirement.name, requirement.extras, requirement.marker,
+//     );
+
+//     parse_index_html_page(&mut project_index, project_url, PAGE_CONTENT2)?;
+//     let candidates = find_candidates_links(&target_env, &project_index, &requirement)?;
+
+//     for link in candidates {
+//         println!("link: {} {}", link.package_version(), link.filename_base());
+//     }
+
+//     Ok(())
+// }
+
 fn parse_index_html_page(
     project_index: &mut ProjectIndex,
-    project_url: &str,
     html_content: &str,
 ) -> Result<(), Error> {
     let document = Html::parse_document(html_content);
@@ -59,9 +121,11 @@ fn parse_index_html_page(
     let base_url = Url::parse(match document.select(&base_selector).next() {
         Some(node) => {
             //
-            node.value().attr("href").unwrap_or(project_url)
+            node.value()
+                .attr("href")
+                .unwrap_or(project_index.project_url())
         }
-        None => project_url,
+        None => project_index.project_url(),
     })?;
 
     // let mut links = Vec::new();
@@ -93,9 +157,9 @@ fn parse_index_html_page(
     // Ok(project_index)
 }
 
-
-fn find_candidates_links<'a>(
-    target_env: &TargetEnv,
+pub fn find_candidates_links<'a>(
+    installer: &Installer,
+    // target_env: &TargetEnv,
     index: &'a ProjectIndex,
     requirement: &Requirement,
 ) -> Result<Vec<&'a PackageLink>, Error> {
@@ -104,7 +168,7 @@ fn find_candidates_links<'a>(
 
     use std::str::FromStr;
 
-    let python_version = match Version::from_str(target_env.python_version()) {
+    let python_version = match Version::from_str(&installer.python_version_full) {
         Ok(version) => version,
         Err(err) => bail!("parsing version: {}", err),
     };
@@ -139,8 +203,8 @@ fn find_candidates_links<'a>(
         }
 
         // 匹配环境最合适的tag
-        if let Some(wheel) = link.wheel_info() {
-            let Some(best_tag_rank) = target_env.get_best_tag_rank(wheel) else {
+        if link.is_wheel() {
+            let Some(best_tag_rank) = get_best_tag_rank(installer, link) else {
                 continue; // 无适合的tag
             };
 
@@ -168,6 +232,20 @@ fn find_candidates_links<'a>(
     Ok(candidates.iter().map(|x| x.2).collect())
 }
 
+pub fn get_best_tag_rank(installer: &Installer, link: &PackageLink) -> Option<u32> {
+    let Some(tags) = link.wheel_tags() else {
+        return None;
+    };
+
+    let mut ranks = Vec::new();
+    for tag in tags {
+        if let Some(i) = installer.support_tags_map.get(tag.as_str()) {
+            ranks.push(*i);
+        }
+    }
+
+    ranks.iter().min().copied()
+}
 
 static PAGE_CONTENT: &str = r#"
 <!DOCTYPE html>
@@ -245,5 +323,3 @@ static PAGE_CONTENT2: &str = r#"
 </html>
 <!--SERIAL 18020084-->
 "#;
-
-

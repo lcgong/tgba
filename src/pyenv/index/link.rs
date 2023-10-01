@@ -37,6 +37,10 @@ impl PackageLink {
         &self.filename_extension
     }
 
+    pub fn yanked_reason(&self) -> Option<&str> {
+        self.yanked_reason.as_deref()
+    }
+
     pub fn checksum(&self) -> Option<(&str, &str)> {
         let Some((method, digest)) = &self.hash else {
             return None;
@@ -84,7 +88,7 @@ struct WheelInfo {
     pyversions: Vec<String>,
     abis: Vec<String>,
     plats: Vec<String>,
-    build: Option<String>,
+    // build: Option<String>,
 }
 
 fn parse_wheel_info(file_base: &str) -> Result<(String, WheelInfo)> {
@@ -114,7 +118,7 @@ fn parse_wheel_info(file_base: &str) -> Result<(String, WheelInfo)> {
     let pyversions = caps["pyver"].split('.').map(|s| s.to_string()).collect();
     let abis = caps["abi"].split('.').map(|s| s.to_string()).collect();
     let plats = caps["plat"].split('.').map(|s| s.to_string()).collect();
-    let build = caps.name("build").map(|m| m.as_str().to_string());
+    // let build = caps.name("build").map(|m| m.as_str().to_string());
 
     Ok((
         pkg_version,
@@ -122,7 +126,7 @@ fn parse_wheel_info(file_base: &str) -> Result<(String, WheelInfo)> {
             pyversions,
             abis,
             plats,
-            build,
+            // build,
         },
     ))
 }

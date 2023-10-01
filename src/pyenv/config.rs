@@ -1,4 +1,4 @@
-use anyhow::{bail, Error};
+use anyhow::Error;
 
 pub static PIP_VERSION: &str = "23.2.1";
 pub static CPYTHON_DISTS: [(&str, &str, &str); 2] = [

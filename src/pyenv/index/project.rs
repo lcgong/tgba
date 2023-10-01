@@ -1,14 +1,46 @@
 use anyhow::{bail, Error, Result};
 use pep508_rs::Requirement;
 use scraper::{Html, Selector};
+use std::fs::File;
 use url::Url;
 
+use super::super::download::{download, fetch_text};
 use super::super::installer::Installer;
-use super::link::{self, parse_link_from_url, PackageLink};
+use super::link::{parse_link_from_url, PackageLink};
+use crate::pyenv::checksum;
 use crate::pyenv::utils::canonicalize_name;
 
+#[derive(Clone)]
+pub struct PyPi {
+    name: String,
+    url: String,
+}
+
+impl PyPi {
+    pub fn new(name: &str, url: &str) -> Self {
+        let url = if url.ends_with('/') {
+            url.to_string()
+        } else {
+            format!("{}/", url)
+        };
+
+        PyPi {
+            name: name.to_string(),
+            url,
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn package_url(&self, canonical_name: &str) -> String {
+        format!("{}{}/", self.url, canonical_name)
+    }
+}
+
 pub struct ProjectIndex {
-    index_url: String,
+    pypi: PyPi,
     project_name: String,
     project_url: String,
     canonical_name: String,
@@ -16,19 +48,13 @@ pub struct ProjectIndex {
 }
 
 impl ProjectIndex {
-    pub fn new(index_url: &str, project_name: &str) -> Self {
+    pub fn new(pypi: &PyPi, project_name: &str) -> Self {
         let canonical_name = canonicalize_name(project_name);
 
-        let project_url = if index_url.ends_with('/') {
-            format!("{}{}/", index_url, canonical_name)
-        } else {
-            format!("{}/{}/", index_url, canonical_name)
-        };
-
         ProjectIndex {
-            index_url: index_url.to_string(),
+            pypi: pypi.clone(),
             project_name: project_name.to_string(),
-            project_url,
+            project_url: pypi.package_url(canonical_name.as_str()),
             canonical_name,
             links: Vec::new(),
         }
@@ -39,39 +65,59 @@ impl ProjectIndex {
     }
 }
 
-pub async fn download_requirement(installer: &Installer, requirement: &Requirement) -> Result<()>{
-
-    // let requirements = get_requirements(&installer).await?;
-
-    Ok(())
-}
-
-async fn get_project_index(installer: &Installer, requirement: &Requirement) -> Result<()> {
+pub async fn download_requirement(
+    installer: &Installer,
+    pypi: &PyPi,
+    requirement: &Requirement,
+) -> Result<()> {
     let project_name = requirement.name.as_str();
 
-    let index_url = "https://pypi.tuna.tsinghua.edu.cn/simple";
+    let mut project_index = ProjectIndex::new(pypi, project_name);
 
-    let mut project_index = ProjectIndex::new(index_url, project_name);
+    let page = fetch_text(
+        installer,
+        project_index.project_url(),
+        format!("从{}获取{}包信息", pypi.name(), project_name).as_str(),
+    )
+    .await?;
 
-    // use std::str::FromStr;
-    // let requirement = "torch~=2.0.0";
-    // let requirement = Requirement::from_str(requirement)?;
+    parse_index_html_page(&mut project_index, page.as_str())?;
 
-    println!(
-        "package-name: {}, extras: {:?}, python_version: {:?}",
-        requirement.name, requirement.extras, requirement.marker,
-    );
+    let candidates = find_candidates_links(installer, &project_index, &requirement)?;
 
-    // let resp = client.get(url).send().await?;
-    // let page = resp.text().await?;
+    // println!("需求：{}", requirement);
+    // for link in find_candidates_links(installer, &project_index, &requirement)? {
+    //     println!("link: {} {}", link.package_version(), link.filename_base());
+    // }
 
-    parse_index_html_page(&mut project_index, PAGE_CONTENT2)?;
+    let link = if candidates.len() > 0 {
+        candidates[0]
+    } else {
+        bail!("未在{}发现满足需求({})的包", pypi.name, requirement)
+    };
 
-    // let candidates = find_candidates_links(installer, &project_index, &requirement)?;
+    let buffer = download(
+        installer,
+        link.url(),
+        &format!("从{}下载{}", pypi.name, link.file_name()),
+    )
+    .await?;
 
-    for link in find_candidates_links(installer, &project_index, &requirement)? {
-        println!("link: {} {}", link.package_version(), link.filename_base());
+    if let Some((checksum_method, hexcode)) = link.checksum() {
+        if !checksum(checksum_method, &buffer, hexcode)? {
+            bail!("文件sha256完整检查失败: {}", link.file_name())
+        }
+    } else {
+        println!("no checksum");
     }
+
+    let cached_packages_dir = &installer.cached_packages_dir;
+
+    let filename = cached_packages_dir.join(link.file_name());
+    let mut dest = File::create(filename)?;
+
+    use std::io::Write;
+    dest.write_all(&buffer)?;
 
     Ok(())
 }
@@ -140,13 +186,17 @@ fn parse_index_html_page(
         let requires_python = elem.attr("data-requires-python");
         let yanked_reason = elem.attr("data-yanked");
 
-        let link = parse_link_from_url(
+        let Some(link) = parse_link_from_url(
             &project_index.canonical_name,
             url,
             requires_python,
             yanked_reason,
-        )?;
+        )?
+        else {
+            continue;
+        };
 
+        // let file_ext = link.filename_extension();
         // println!("{:?}\n", link);
 
         project_index.links.push(link);
@@ -185,7 +235,11 @@ pub fn find_candidates_links<'a>(
         if let Some(requires_python) = link.requires_python() {
             let specifiers = match VersionSpecifiers::from_str(requires_python) {
                 Ok(specifiers) => specifiers,
-                Err(err) => bail!("parsing specifiers: {}", err),
+                Err(_err) => {
+                    // 存在'>=3.4.*'这样不合规范的
+                    // bail!("parsing specifiers: {}", err);
+                    continue;
+                },
             };
 
             if !specifiers.contains(&python_version) {

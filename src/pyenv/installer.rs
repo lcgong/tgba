@@ -10,12 +10,12 @@ use super::utils::parse_version;
 pub struct Installer {
     pub(crate) python_version: String,
     pub(crate) python_version_full: String,
+    pub(crate) cached_packages_dir: PathBuf,
     pub(crate) pydist_dir: PathBuf,
     pub(crate) py_dist: (&'static str, &'static str),
     pub(crate) venv_dir: PathBuf,
     pub(crate) venv_python_path: PathBuf,
     pub(crate) client: reqwest::Client,
-    // pub(crate) tags: Option<PythonPlatformTags>,
     pub platform_tag: Option<String>,
     pub support_tags_map: HashMap<String, u32>,
 }
@@ -38,6 +38,7 @@ impl Installer {
 
         let py_dist_dir = tgba_dir.join(format!("cpython-{}", python_version_full));
         let py_venv_dir = tgba_dir.join(format!("venv"));
+        let cached_packages_dir = tgba_dir.join("cached_packages");
 
         let mut venv_python_path = py_venv_dir.clone();
         venv_python_path.push("Scripts");
@@ -54,6 +55,7 @@ impl Installer {
             py_dist: (dist_url, dist_digest),
             venv_python_path,
             venv_dir: py_venv_dir,
+            cached_packages_dir,
             client,
             // tags: None,
             platform_tag: None,
@@ -61,34 +63,20 @@ impl Installer {
         })
     }
 
-    pub fn update(&self, msg: &str) {
+    pub fn log(&self, msg: &str) {
         println!("{}", msg);
     }
 }
 
-
-
 pub async fn main() -> Result<()> {
     let mut installer = Installer::new()?;
 
+    use super::requirements::install_requirements;
     use super::venv::ensure_python_venv;
+
     ensure_python_venv(&mut installer).await?;
+
+    install_requirements(&installer).await?;
 
     Ok(())
 }
-
-// pub struct JobStatus {
-//     start_time: Instant,
-// }
-
-// impl JobStatus {
-//     pub fn new() -> Self {
-//         JobStatus {
-//             start_time: Instant::now(),
-//         }
-//     }
-
-//     pub fn update(&mut self, msg: &str) {
-//         println!("{}", msg)
-//     }
-// }

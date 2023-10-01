@@ -1,10 +1,11 @@
-use anyhow::{bail, Error};
+use anyhow::{bail, Result};
 use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
 use url::Url;
 
-use super::super::utils::{canonicalize_name, split_filename_extension};
+use crate::pyenv::utils::parse_version;
 
+use super::super::utils::{canonicalize_name, split_filename_extension};
 
 #[derive(Debug)]
 pub struct PackageLink {
@@ -12,6 +13,7 @@ pub struct PackageLink {
     requires_python: Option<String>,
     yanked_reason: Option<String>,
     hash: Option<(String, String)>, // (hash_method, hash_code)
+    file_name: String,
     filename_base: String,
     filename_extension: String,
     package_version: String,
@@ -23,12 +25,24 @@ impl PackageLink {
         self.requires_python.as_deref()
     }
 
+    pub fn file_name(&self) -> &str {
+        &self.file_name
+    }
+
     pub fn filename_base(&self) -> &str {
         &self.filename_base
     }
 
     pub fn filename_extension(&self) -> &str {
         &self.filename_extension
+    }
+
+    pub fn checksum(&self) -> Option<(&str, &str)> {
+        let Some((method, digest)) = &self.hash else {
+            return None;
+        };
+
+        Some((method.as_str(), digest.as_str()))
     }
 
     // pub fn wheel_info(&self) -> Option<&WheelInfo> {
@@ -58,7 +72,10 @@ impl PackageLink {
         }
 
         Some(tags)
+    }
 
+    pub fn url(&self) -> &str {
+        self.url.as_str()
     }
 }
 
@@ -70,22 +87,7 @@ struct WheelInfo {
     build: Option<String>,
 }
 
-// impl WheelInfo {
-//     pub fn tags(&self) -> Vec<String> {
-//         let mut result = Vec::new();
-//         for ver in &self.pyversions {
-//             for abi in &self.abis {
-//                 for plat in &self.plats {
-//                     result.push(format!("{}-{}-{}", ver, abi, plat));
-//                 }
-//             }
-//         }
-
-//         result
-//     }
-// }
-
-fn parse_wheel_info(file_base: &str) -> Result<(String, WheelInfo), Error> {
+fn parse_wheel_info(file_base: &str) -> Result<(String, WheelInfo)> {
     lazy_static! {
         /// https://github.com/pypa/pip/blob/main/src/pip/_internal/models/wheel.py
         static ref WHEEL_INFO_REGEX: Regex = RegexBuilder::new(
@@ -130,26 +132,64 @@ pub fn parse_link_from_url(
     mut url: Url,
     requires_python: Option<&str>,
     yanked_reason: Option<&str>,
-) -> Result<PackageLink, Error> {
+) -> Result<Option<PackageLink>> {
     let hash = parse_link_hash(url.fragment());
     url.set_fragment(None);
 
     let requires_python = requires_python.map(|s| s.to_string());
     let yanked_reason = yanked_reason.map(|s| s.to_string());
 
-    let (file_base, file_ext, prj_ver, wheel_info) =
-        parse_url_file_name(url.as_str(), &canonical_name)?;
+    // 从url拆分出文件名
+    let (_, file_name) = url.as_str().rsplit_once('/').unwrap();
+    let file_name = file_name.to_string();
 
-    Ok(PackageLink {
-        url,
-        requires_python,
-        yanked_reason,
-        hash,
-        filename_base: file_base,
-        filename_extension: file_ext,
-        package_version: prj_ver,
-        wheel_info,
-    })
+    // let (file_base, file_ext, prj_ver, wheel_info) =
+    //     parse_url_file_name(file_name.as_str(), &canonical_name)?;
+
+    let (filename_base, filename_ext) = split_filename_extension(&file_name)?;
+
+    if is_wheel_file(filename_ext) {
+        let (package_version, wheel) = parse_wheel_info(filename_base)?;
+
+        Ok(Some(PackageLink {
+            url,
+            requires_python,
+            yanked_reason,
+            hash,
+            file_name: file_name.to_string(),
+            filename_base: filename_base.to_string(),
+            filename_extension: filename_ext.to_string(),
+            package_version: package_version,
+            wheel_info: Some(wheel),
+        }))
+    } else if is_archive_file(filename_ext) {
+        let Some(version_start) = split_version_from_filename(filename_base, canonical_name) else {
+            panic!("{} does not match {}", filename_base, canonical_name)
+        };
+
+        
+
+        let package_version = filename_base[version_start..].to_string();
+
+        if parse_version(package_version.as_str()).is_err() {
+            println!("skipping: {}", file_name);
+            return Ok(None);
+        }
+
+        Ok(Some(PackageLink {
+            url,
+            requires_python,
+            yanked_reason,
+            hash,
+            file_name: file_name.to_string(),
+            filename_base: filename_base.to_string(),
+            filename_extension: filename_ext.to_string(),
+            package_version,
+            wheel_info: None,
+        }))
+    } else {
+        Ok(None)
+    }
 }
 
 fn parse_link_hash(url_fragment: Option<&str>) -> Option<(String, String)> {
@@ -184,44 +224,38 @@ fn split_version_from_filename(filename: &str, canonical_name: &str) -> Option<u
     None
 }
 
-fn parse_url_file_name(
-    url: &str,
-    canonical_name: &str,
-) -> Result<(String, String, String, Option<WheelInfo>), Error> {
-    // 从url拆分出文件名
-    let splits = url.rsplit_once('/').unwrap();
-    let file_name = splits.1;
+// fn parse_url_file_name(
+//     file_name: &str,
+//     canonical_name: &str,
+// ) -> Result<(String, String, String, Option<WheelInfo>)> {
+//     // 从文件名拆分出文件名后缀
+//     let (filename_base, filename_ext) = split_filename_extension(&file_name)?;
 
-    // 从文件名拆分出文件名后缀
-    let (filename_base, filename_ext) = split_filename_extension(&file_name)?;
+//     let (package_version, wheel) = if is_wheel_file(filename_ext) {
+//         let (package_version, wheel) = parse_wheel_info(filename_base)?;
 
-    let (package_version, wheel) = if is_wheel_file(filename_ext) {
-        let (package_version, wheel) = parse_wheel_info(filename_base)?;
+//         (package_version, Some(wheel))
+//     } else {
+//         if !is_archive_file(filename_ext) {
+//             bail!("no support extension: {}", file_name);
+//         }
 
-        (package_version, Some(wheel))
-    } else {
-        if !is_archive_extension(filename_ext) {
-            bail!("no support extension: {}", file_name);
-        }
+//         let Some(version_start) = split_version_from_filename(filename_base, canonical_name) else {
+//             panic!("{} does not match {}", filename_base, canonical_name)
+//         };
 
-        let Some(version_start) = split_version_from_filename(filename_base, canonical_name) else {
-            panic!("{} does not match {}", filename_base, canonical_name)
-        };
+//         let package_version = filename_base[version_start..].to_string();
 
-        let package_version = filename_base[version_start..].to_string();
+//         (package_version, None)
+//     };
 
-        (package_version, None)
-    };
-
-    Ok((
-        filename_base.to_string(),
-        filename_ext.to_string(),
-        package_version,
-        wheel,
-    ))
-}
-
-
+//     Ok((
+//         filename_base.to_string(),
+//         filename_ext.to_string(),
+//         package_version,
+//         wheel,
+//     ))
+// }
 
 lazy_static! {
     static ref WHEEL_EXTENSION: &'static str = ".whl";
@@ -233,7 +267,7 @@ fn is_wheel_file(filename_ext: &str) -> bool {
 }
 
 #[inline]
-fn is_archive_extension(extension: &str) -> bool {
+fn is_archive_file(extension: &str) -> bool {
     let extension = extension.to_lowercase();
     lazy_static! {
         static ref SUPPORT_EXTENSIONS: [&'static str; 11]  = [
@@ -252,5 +286,3 @@ fn is_archive_extension(extension: &str) -> bool {
 
     false
 }
-
-

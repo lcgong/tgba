@@ -1,8 +1,8 @@
-use anyhow::{bail, Error};
+use anyhow::{bail, Result};
 use sha2::{Digest, Sha256};
 use std::path::Path;
 
-pub fn unpack_archive(extension: &str, bytes: &[u8], dest: &Path) -> Result<(), Error> {
+pub fn unpack_archive(extension: &str, bytes: &[u8], dest: &Path) -> Result<()> {
     match extension {
         ".zip" => unpack_zip(bytes, dest)?,
         ".tar.zstd" => {
@@ -25,22 +25,9 @@ pub fn unpack_archive(extension: &str, bytes: &[u8], dest: &Path) -> Result<(), 
     Ok(())
 }
 
-/// Takes a bytes slice and compares it to a given string checksum.
-pub fn sha256_checksum(content: &[u8], checksum: &str) -> bool {
-    let mut hasher = Sha256::new();
-    hasher.update(content);
 
-    let digest = hasher.finalize();
-    
-    let digest = hex::encode(digest);
-    if !digest.eq_ignore_ascii_case(checksum) {
-        false
-    } else {
-        true
-    }
-}
 
-fn unpack_zip(bytes: &[u8], dest: &Path) -> Result<(), Error> {
+fn unpack_zip(bytes: &[u8], dest: &Path) -> Result<()> {
     use std::io::Cursor;
     use zip::read::ZipArchive;
 
@@ -84,7 +71,7 @@ fn unpack_zip(bytes: &[u8], dest: &Path) -> Result<(), Error> {
     Ok(())
 }
 
-fn unpack_tar<R: std::io::Read>(obj: R, dest: &Path) -> Result<(), Error> {
+fn unpack_tar<R: std::io::Read>(obj: R, dest: &Path) -> Result<()> {
     let strip_components = 1;
 
     let mut archive = tar::Archive::new(obj);
@@ -111,4 +98,26 @@ fn unpack_tar<R: std::io::Read>(obj: R, dest: &Path) -> Result<(), Error> {
     }
 
     Ok(())
+}
+
+pub fn checksum(method: &str, content: &[u8], hexcode:&str) -> Result<bool> {
+    match method.to_lowercase().as_str() {
+        "sha256" => Ok(sha256_checksum(content, hexcode)),
+        _ => bail!("不支持checksum方法: {}", method)
+    }
+}
+
+/// Takes a bytes slice and compares it to a given string checksum.
+fn sha256_checksum(content: &[u8], hexcode: &str) -> bool {
+    let mut hasher = Sha256::new();
+    hasher.update(content);
+
+    let digest = hasher.finalize();
+    
+    let digest = hex::encode(digest);
+    if !digest.eq_ignore_ascii_case(hexcode) {
+        false
+    } else {
+        true
+    }
 }

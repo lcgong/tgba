@@ -68,6 +68,15 @@ async fn main() -> Result<(), Error> {
 
     pyenv::installer::main().await?;
 
+    // use url::Url; // 2.1.0
+
+// fn main() {
+    // let u = Url::parse("http://my.com/dir1/dir2/simple").unwrap();
+    // let u2 = u.join("abc/").unwrap();
+    // println!("{}", u2);
+    // assert_eq!("/dir1/dir2/", u2.path());
+// }
+
     // download(&client).await?;
 
     

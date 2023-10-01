@@ -1,6 +1,11 @@
 use anyhow::Error;
+use lazy_static::lazy_static;
+
+use super::index::PyPI;
 
 pub static PIP_VERSION: &str = "23.2.1";
+
+/// https://github.com/indygreg/python-build-standalone/releases
 pub static CPYTHON_DISTS: [(&str, &str, &str); 2] = [
     (
         "3.11.5-20230826",
@@ -13,6 +18,15 @@ pub static CPYTHON_DISTS: [(&str, &str, &str); 2] = [
         "6428e1b4e0b4482d390828de7d4c82815257443416cb786abe10cb2466ca68cd"
     ),    
 ];
+
+
+lazy_static! {
+    pub static ref PYPI_MIRRORS: [PyPI; 1] = [
+        PyPI::new("清华源", "https://pypi.tuna.tsinghua.edu.cn/simple"),
+    ];    
+}
+
+pub static OBLIGATED_PACKAGES: [&str; 2] = ["setuptools>=68.0.0", "wheel>=0.38.0"];
 
 
 pub fn get_cpytion_candidates() -> Result<(&'static str, &'static str, &'static str), Error> {

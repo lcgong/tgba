@@ -7,6 +7,7 @@ pub mod requirements;
 pub mod installer;
 pub mod download;
 pub mod venv;
+pub mod winlnk;
 
 pub use archive::{checksum, unpack_archive};
 pub use installer::Installer;

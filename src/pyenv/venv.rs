@@ -91,7 +91,7 @@ pub async fn ensure_python_dist(installer: &Installer) -> Result<()> {
         bail!("创建目录{}失败: {}", pydist_dir.display(), _err)
     }
 
-    let (dist_url, dist_digest) = installer.py_dist;
+    let (dist_url, dist_digest) = installer.pydist_source;
 
     use super::utils::split_filename_extension;
 
@@ -152,3 +152,104 @@ pub async fn ensure_venv(installer: &Installer) -> Result<()> {
 
     Ok(())
 }
+
+pub fn venv_python_cmd(installer: &Installer, args: &[&str]) -> Result<std::process::Output> {
+    let python_bin = &installer.venv_python_path;
+
+    // 将venv/Script目录添加到环境变量PATH中
+    use std::env;
+    let venv_script_dir = installer.venv_dir.join("Scripts");
+    let path_env = if let Some(path) = env::var_os("PATH") {
+        let mut paths = std::env::split_paths(&path).collect::<Vec<_>>();
+        paths.insert(0, venv_script_dir);
+        env::join_paths(paths)?
+    } else {
+        let paths = vec![venv_script_dir];
+        env::join_paths(paths)?
+    };
+
+    println!("path: {}", &path_env.to_string_lossy());
+
+    let mut cmd = Command::new(&python_bin);
+    cmd.env("PATH", path_env.to_string_lossy().as_ref());
+    cmd.env("VIRTUAL_ENV", installer.venv_dir.to_string_lossy().as_ref());
+    cmd.env_remove("PYTHONHOME");
+    for arg in args {
+        cmd.arg(arg);
+    }
+
+    let args_str = cmd
+        .get_args()
+        .map(|s| s.to_string_lossy().to_string())
+        .collect::<Vec<String>>()
+        .join(" ");
+    let prog_cmd = format!("{} {}", cmd.get_program().to_string_lossy(), args_str);
+    println!("cmd: {}", prog_cmd);
+
+    let output = match cmd.output() {
+        Ok(output) => output,
+        Err(err) => {
+            use std::io::ErrorKind;
+            if err.kind() == ErrorKind::Interrupted {
+                bail!("程序({})异常中断: {}", prog_cmd, err)
+            } else {
+                bail!("程序({})无法执行：{}", prog_cmd, err)
+            }
+        }
+    };
+
+    Ok(output)
+}
+
+// pub fn venv_cmd(installer: &Installer) -> Result<()> {
+//     // 将venv/Script目录添加到环境变量PATH中
+//     use std::env;
+//     let venv_script_dir = installer.venv_dir.join("Scripts");
+//     let path_env = if let Some(path) = env::var_os("PATH") {
+//         let mut paths = std::env::split_paths(&path).collect::<Vec<_>>();
+//         paths.insert(0, venv_script_dir);
+//         env::join_paths(paths)?
+//     } else {
+//         let paths = vec![venv_script_dir];
+//         env::join_paths(paths)?
+//     };
+
+//     println!("path: {}", &path_env.to_string_lossy());
+
+//     let mut cmd = Command::new("cmd.exe");
+//     cmd.env("PATH", path_env.to_string_lossy().as_ref());
+//     cmd.env("VIRTUAL_ENV", installer.venv_dir.to_string_lossy().as_ref());
+//     cmd.env_remove("PYTHONHOME");
+
+//     cmd.arg("/c");
+//     cmd.arg("set");
+
+//     let args_str = cmd
+//         .get_args()
+//         .map(|s| s.to_string_lossy().to_string())
+//         .collect::<Vec<String>>()
+//         .join(" ");
+//     let prog_cmd = format!("{} {}", cmd.get_program().to_string_lossy(), args_str);
+//     println!("cmd: {}", prog_cmd);
+
+//     let output = match cmd.output() {
+//         Ok(output) => output,
+//         Err(err) => {
+//             use std::io::ErrorKind;
+//             if err.kind() == ErrorKind::Interrupted {
+//                 bail!("程序({})异常中断: {}", prog_cmd, err)
+//             } else {
+//                 bail!("程序({})无法执行：{}", prog_cmd, err)
+//             }
+//         }
+//     };
+
+//     println!(
+//         "STATUS:{}\n{}\nSTDERR:\n{}",
+//         output.status,
+//         String::from_utf8_lossy(&output.stdout),
+//         String::from_utf8_lossy(&output.stderr)
+//     );
+
+//     Ok(())
+// }

@@ -2,17 +2,19 @@ use anyhow::{bail, Error, Result};
 use reqwest;
 use std::collections::HashMap;
 use std::path::PathBuf;
-// use std::process::{Command, Stdio};
 
 use super::config::{get_cpytion_candidates, get_pip_user_agent};
 use super::utils::parse_version;
 
 pub struct Installer {
+    target_dir: PathBuf,
+    tgba_dir: PathBuf,
+
     pub(crate) python_version: String,
     pub(crate) python_version_full: String,
     pub(crate) cached_packages_dir: PathBuf,
     pub(crate) pydist_dir: PathBuf,
-    pub(crate) py_dist: (&'static str, &'static str),
+    pub(crate) pydist_source: (&'static str, &'static str),
     pub(crate) venv_dir: PathBuf,
     pub(crate) venv_python_path: PathBuf,
     pub(crate) client: reqwest::Client,
@@ -21,9 +23,8 @@ pub struct Installer {
 }
 
 impl Installer {
-    pub fn new() -> Result<Self, Error> {
-        let work_dir = std::env::current_dir()?;
-        let tgba_dir = work_dir.join(".tgba");
+    pub fn new(target_dir: PathBuf) -> Result<Self, Error> {
+        let tgba_dir = target_dir.join(".tgba");
 
         let (py_ver, dist_url, dist_digest) = get_cpytion_candidates()?;
         let python_version = parse_version(py_ver)?;
@@ -49,18 +50,27 @@ impl Installer {
             .build()?;
 
         Ok(Installer {
+            target_dir,
             python_version,
             python_version_full,
+            tgba_dir,
             pydist_dir: py_dist_dir,
-            py_dist: (dist_url, dist_digest),
+            pydist_source: (dist_url, dist_digest),
             venv_python_path,
             venv_dir: py_venv_dir,
             cached_packages_dir,
             client,
-            // tags: None,
             platform_tag: None,
             support_tags_map: HashMap::new(),
         })
+    }
+
+    pub fn target_dir(&self) -> &PathBuf {
+        &self.target_dir
+    }
+
+    pub fn tgba_dir(&self) -> &PathBuf {
+        &self.tgba_dir
     }
 
     pub fn log(&self, msg: &str) {
@@ -69,14 +79,20 @@ impl Installer {
 }
 
 pub async fn main() -> Result<()> {
-    let mut installer = Installer::new()?;
+    let target_dir = std::env::current_dir()?;
 
-    use super::requirements::install_requirements;
+    let mut installer = Installer::new(target_dir)?;
+
+    // use super::requirements::install_requirements;
     use super::venv::ensure_python_venv;
 
     ensure_python_venv(&mut installer).await?;
 
-    install_requirements(&installer).await?;
+    // install_requirements(&installer).await?;
+
+    use super::winlnk::create_winlnk;
+
+    create_winlnk(&installer, &installer.target_dir.clone())?;
 
     Ok(())
 }

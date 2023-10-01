@@ -10,41 +10,10 @@ use super::link::{parse_link_from_url, PackageLink};
 use crate::pyenv::checksum;
 use crate::pyenv::utils::canonicalize_name;
 
-#[derive(Clone)]
-pub struct PyPi {
-    name: String,
-    url: String,
-}
-
-impl PyPi {
-    pub fn new(name: &str, url: &str) -> Self {
-        let url = if url.ends_with('/') {
-            url.to_string()
-        } else {
-            format!("{}/", url)
-        };
-
-        PyPi {
-            name: name.to_string(),
-            url,
-        }
-    }
-
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    pub fn url(&self) -> &str {
-        &self.url
-    }
-
-    pub fn package_url(&self, canonical_name: &str) -> String {
-        format!("{}{}/", self.url, canonical_name)
-    }
-}
+use super::PyPI;
 
 pub struct ProjectIndex {
-    pypi: PyPi,
+    pypi: PyPI,
     project_name: String,
     project_url: String,
     canonical_name: String,
@@ -52,7 +21,7 @@ pub struct ProjectIndex {
 }
 
 impl ProjectIndex {
-    pub fn new(pypi: &PyPi, project_name: &str) -> Self {
+    pub fn new(pypi: &PyPI, project_name: &str) -> Self {
         let canonical_name = canonicalize_name(project_name);
 
         ProjectIndex {
@@ -64,7 +33,7 @@ impl ProjectIndex {
         }
     }
 
-    pub fn pypi(&self) -> &PyPi {
+    pub fn pypi(&self) -> &PyPI {
         &self.pypi
     }
 
@@ -79,7 +48,7 @@ impl ProjectIndex {
 
 pub async fn download_requirement(
     installer: &Installer,
-    pypi: &PyPi,
+    pypi: &PyPI,
     requirement: &Requirement,
 ) -> Result<()> {
     let project_name = requirement.name.as_str();
@@ -105,13 +74,13 @@ pub async fn download_requirement(
     let link = if candidates.len() > 0 {
         candidates[0]
     } else {
-        bail!("未在{}发现满足需求({})的包", pypi.name, requirement)
+        bail!("未在{}发现满足需求({})的包", pypi.name(), requirement)
     };
 
     let buffer = download(
         installer,
         link.url(),
-        &format!("从{}下载{}", pypi.name, link.file_name()),
+        &format!("从{}下载{}", pypi.name(), link.file_name()),
     )
     .await?;
 

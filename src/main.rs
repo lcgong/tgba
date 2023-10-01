@@ -3,10 +3,12 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 // mod heading;
-// mod step;
-// mod style;
+pub mod step;
+pub mod style;
+pub mod resources;
 // mod winapp;
 pub mod pyenv;
+
 // pub mod pypip;
 
 // use winapp::main_app;

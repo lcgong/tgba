@@ -28,6 +28,7 @@ bzip2 = "0.4.4"
 winreg = "0.51.0"
 serde_json = "1.0.107"
 tempfile = "3.8.0"
+mslnk = "0.1.8"
 
 [profile.release]
 strip = true

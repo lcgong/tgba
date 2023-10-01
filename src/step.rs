@@ -10,10 +10,7 @@ use std::thread::JoinHandle;
 
 use super::style::AppStyle;
 
-use rust_embed::RustEmbed;
-#[derive(RustEmbed)]
-#[folder = "resources/"]
-struct EmbededResources;
+use super::resources::EmbededResources;
 
 const _N_FRAMES: usize = 8;
 const _FRAME_INTERVAL: f64 = 1.0 / 15.0;

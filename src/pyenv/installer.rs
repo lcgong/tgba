@@ -83,15 +83,13 @@ pub async fn main() -> Result<()> {
 
     let mut installer = Installer::new(target_dir)?;
 
-    // use super::requirements::install_requirements;
     use super::venv::ensure_python_venv;
-
     ensure_python_venv(&mut installer).await?;
 
-    // install_requirements(&installer).await?;
+    use super::requirements::install_requirements;
+    install_requirements(&installer).await?;
 
     use super::winlnk::create_winlnk;
-
     create_winlnk(&installer, &installer.target_dir.clone())?;
 
     Ok(())

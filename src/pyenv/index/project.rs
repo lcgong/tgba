@@ -2,6 +2,7 @@ use anyhow::{bail, Error, Result};
 use pep508_rs::Requirement;
 use scraper::{Html, Selector};
 use std::fs::File;
+use std::path::PathBuf;
 use url::Url;
 
 use super::super::download::{download, fetch_text};
@@ -77,6 +78,13 @@ pub async fn download_requirement(
         bail!("未在{}发现满足需求({})的包", pypi.name(), requirement)
     };
 
+    let cached_filename = &installer.cached_packages_dir.join(link.file_name());
+
+    if is_cached_file_available(link, cached_filename)? {
+        installer.log(format!("程序包{}本地已缓存，无需下载", cached_filename.display()).as_str());
+        return Ok(());
+    }
+
     let buffer = download(
         installer,
         link.url(),
@@ -92,12 +100,41 @@ pub async fn download_requirement(
         println!("no checksum");
     }
 
-    let mut package_file = File::create(&installer.cached_packages_dir.join(link.file_name()))?;
+    let mut package_file = File::create(cached_filename)?;
 
     use std::io::Write;
     package_file.write_all(&buffer)?;
 
     Ok(())
+}
+
+fn is_cached_file_available(link: &PackageLink, cached_filename: &PathBuf) -> Result<bool> {
+    if !cached_filename.is_file() {
+        // 文件不存在，无需进一步的检查
+        return Ok(false);
+    }
+
+    // 文件已经存在，检查是否完整
+    let _err: Option<anyhow::Error> = match std::fs::read(cached_filename) {
+        Ok(buf) => {
+            if let Some((checksum_method, hexcode)) = link.checksum() {
+                match checksum(checksum_method, &buf, hexcode) {
+                    Ok(true) => return Ok(true),
+                    Ok(false) => None,
+                    Err(err) => Some(err),
+                }
+            } else {
+                None
+            }
+        }
+        Err(err) => Some(err.into()),
+    };
+
+    if let Err(err) = std::fs::remove_file(cached_filename) {
+        bail!("删除无效临时文件{}错误: {}", cached_filename.display(), err)
+    }
+
+    Ok(false)
 }
 
 // pub async fn get_project_index(client: &reqwest::Client) -> Result<(), Error> {

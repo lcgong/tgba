@@ -7,7 +7,6 @@ impl Installer {
     pub fn start_downloading(&self, title: &str, total_size: u64) -> DownloadingStats {
         DownloadingStats::new(self, title, total_size)
     }
-
 }
 
 pub async fn download(installer: &Installer, url: &str, title: &str) -> Result<Vec<u8>> {
@@ -26,13 +25,22 @@ pub async fn download(installer: &Installer, url: &str, title: &str) -> Result<V
 
     let mut stats = installer.start_downloading(title, total_size);
 
+    loop {
+        match resp.chunk().await {
+            Ok(Some(chunk)) => {
+                use std::io::Write;
+                buffer.write_all(&chunk).unwrap();
 
-
-    while let Some(chunk) = resp.chunk().await? {
-        use std::io::Write;
-        buffer.write_all(&chunk).unwrap();
-
-        stats.update(chunk.len() as u64);
+                stats.update(chunk.len() as u64);
+            }
+            Ok(None) => {
+                break;
+            }
+            Err(err) => {
+                if err.is_timeout() {}
+                return Err(err.into());
+            }
+        };
     }
 
     stats.finish();
@@ -90,19 +98,17 @@ impl<'a> DownloadingStats<'a> {
         if self.prev_start_time.elapsed().as_secs_f64() > 0.3 {
             self.prev_downloaded = self.downloaded;
             self.prev_start_time = self.start_time;
-    
+
             self.count += 1;
             self.downloaded += size;
             self.start_time = now;
 
             self.log();
-
         } else {
             self.count += 1;
             self.downloaded += size;
             self.start_time = now;
         }
-
     }
 
     pub fn count(&self) -> u64 {

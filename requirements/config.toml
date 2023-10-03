@@ -1,5 +1,8 @@
 pip_version = "23.2.1"
+obligated_requirements = ["setuptools>=68.0.0", "wheel>=0.38.0"]
 
+
+# 获取CPython独立打包 https://github.com/indygreg/python-build-standalone/releases
 [[cpython]]
 python_version = "3.11"
 version = "3.11.5-20230826"

@@ -5,9 +5,6 @@ use std::{fs::File, path::PathBuf};
 use super::installer::Installer;
 
 pub async fn install_requirements(installer: &Installer) -> Result<()> {
-    // use super::index::PyPI;
-    // let pypi = PyPI::new("清华源", "https://pypi.tuna.tsinghua.edu.cn/simple");
-
     let cached_packages_dir = &installer.cached_packages_dir;
     if let Err(_err) = std::fs::create_dir_all(cached_packages_dir) {
         bail!(
@@ -20,7 +17,7 @@ pub async fn install_requirements(installer: &Installer) -> Result<()> {
     let requirements_path = &get_requirements_path(installer).await?;
 
     let mut requirements = extract_requirements(requirements_path).await?;
-    requirements.append(&mut obligated_packages()?);
+    requirements.append(&mut get_obligated_requirements(installer)?);
 
     let pypi_mirrors = installer.pypi_mirrors();
 
@@ -86,22 +83,30 @@ fn offline_install_requirements(
     Ok(())
 }
 
+
 async fn get_requirements_path(installer: &Installer) -> Result<PathBuf> {
-    let requirements_filename = format!(
+    let filename = format!(
         "requirements-{}-{}.txt",
         installer.python_version,
         installer.platform_tag.as_ref().unwrap()
     );
 
-    let requirements_file = installer.tgba_dir().join(requirements_filename);
-    if !requirements_file.is_file() {
-        bail!("unimplemented: {}", requirements_file.display())
-    }
+    use crate::resources::EmbededRequirements;
+    let embed_file: rust_embed::EmbeddedFile = EmbededRequirements::get(filename.as_str()).unwrap();
 
-    Ok(requirements_file)
+
+    let requirements_path = installer.tgba_dir().join(&filename);
+
+    let mut file = File::create(&requirements_path)?;
+
+    use std::io::Write;
+    file.write_all(embed_file.data.as_ref())?;    
+
+    Ok(requirements_path)
 }
 
 async fn extract_requirements(requirements_path: &PathBuf) -> Result<Vec<Requirement>> {
+
     let file = File::open(requirements_path).unwrap();
 
     use std::io::{BufRead, BufReader};
@@ -137,12 +142,12 @@ async fn extract_requirements(requirements_path: &PathBuf) -> Result<Vec<Require
     Ok(requirements)
 }
 
-use super::config::OBLIGATED_PACKAGES;
+// use super::config::OBLIGATED_PACKAGES;
 
-fn obligated_packages() -> Result<Vec<Requirement>> {
+fn get_obligated_requirements(installer: &Installer) -> Result<Vec<Requirement>> {
     let mut requirements = Vec::new();
     let mut errors = Vec::new();
-    for (idx, requirement) in OBLIGATED_PACKAGES.iter().enumerate() {
+    for (idx, requirement) in installer.obligated_requirements().iter().enumerate() {
         use std::str::FromStr;
         match Requirement::from_str(requirement) {
             Ok(requirement) => {

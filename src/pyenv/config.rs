@@ -1,23 +1,12 @@
 use anyhow::{bail, Result};
 use serde_derive::Deserialize;
-// use lazy_static::lazy_static;
-
-// use super::index::PyPI;
-
-// lazy_static! {
-//     pub static ref PYPI_MIRRORS: [PyPI; 1] = [PyPI::new(
-//         "清华源",
-//         "https://pypi.tuna.tsinghua.edu.cn/simple"
-//     ),];
-// }
-
-pub static OBLIGATED_PACKAGES: [&str; 2] = ["setuptools>=68.0.0", "wheel>=0.38.0"];
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
     pip_version: String,
     pypi: Vec<PyPIMirror>,
     cpython: Vec<CPythonDistSource>,
+    obligated_requirements: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -65,6 +54,11 @@ impl Config {
     pub fn get_pypi_mirrors(&self) -> &[PyPIMirror] {
         &self.pypi
     }
+
+    pub fn obligated_requirements(&self) -> &[String] {
+        &self.obligated_requirements
+    }
+
 }
 
 impl PyPIMirror {

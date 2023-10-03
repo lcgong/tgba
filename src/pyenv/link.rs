@@ -171,12 +171,10 @@ pub fn parse_link_from_url(
             panic!("{} does not match {}", filename_base, canonical_name)
         };
 
-        
-
         let package_version = filename_base[version_start..].to_string();
 
         if parse_version(package_version.as_str()).is_err() {
-            println!("skipping: {}", file_name);
+            // 跳过在早期文件名不符合规范的
             return Ok(None);
         }
 

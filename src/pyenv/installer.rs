@@ -23,6 +23,7 @@ pub struct Installer {
     pub support_tags_map: HashMap<String, u32>,
 
     pypi_mirrors: Vec<PyPIMirror>,
+    obligated_requirements: Vec<String>,
 }
 
 impl Installer {
@@ -73,6 +74,7 @@ impl Installer {
             platform_tag: None,
             support_tags_map: HashMap::new(),
             pypi_mirrors: mirrors,
+            obligated_requirements: config.obligated_requirements().to_vec(),
         })
     }
 
@@ -92,9 +94,12 @@ impl Installer {
         println!("{}", msg);
     }
 
-
     pub fn pypi_mirrors(&self) -> &[PyPIMirror] {
         &self.pypi_mirrors
+    }
+
+    pub fn obligated_requirements(&self) -> &[String] {
+        &self.obligated_requirements
     }
 }
 

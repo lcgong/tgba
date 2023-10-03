@@ -1,0 +1,32 @@
+numpy
+scipy
+sympy
+
+pandas
+geopandas
+openpyxl
+xlrd
+
+matplotlib
+seaborn
+
+statsmodels
+linearmodels
+causalinference
+plspm
+
+scikit-learn
+xgboost
+mlxtend
+
+# torch
+# torchvision
+
+pulp
+mip
+
+jieba
+python-docx
+
+duckdb
+magic-duckdb

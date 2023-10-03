@@ -6,7 +6,6 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.75"
 fltk = { version = "^1.4", features = ["fltk-bundled"] }
-curl = { version = "0.4.44", features = ["ssl", "static-curl", "static-ssl"] }
 hex = "0.4.3"
 lazy_static = "1.4.0"
 rust-embed = "6.8.1"
@@ -17,7 +16,6 @@ tar = "0.4.40"
 reqwest = "0.11.20"
 tokio = { version = "1.32.0", features = ["full"] }
 scraper = "0.17.1"
-pomsky-macro = "0.10.0"
 regex = "1.9.5"
 serde = { version = "1.0.188", features = ["derive"] }
 pep440_rs = "0.3.11"
@@ -29,6 +27,8 @@ winreg = "0.51.0"
 serde_json = "1.0.107"
 tempfile = "3.8.0"
 mslnk = "0.1.8"
+toml = "0.8.2"
+serde_derive = "1.0.188"
 
 [profile.release]
 strip = true

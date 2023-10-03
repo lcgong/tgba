@@ -3,9 +3,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 // mod heading;
+pub mod resources;
 pub mod step;
 pub mod style;
-pub mod resources;
 // mod winapp;
 pub mod pyenv;
 
@@ -22,9 +22,10 @@ use anyhow::Result;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // use crate::pyenv::config::Config;
+    // Config::load()?;
 
     pyenv::installer::main().await?;
-
 
     // download(&client).await?;
 

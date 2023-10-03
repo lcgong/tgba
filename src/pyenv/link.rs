@@ -5,7 +5,7 @@ use url::Url;
 
 use crate::pyenv::utils::parse_version;
 
-use super::super::utils::{canonicalize_name, split_filename_extension};
+use super::utils::{canonicalize_name, split_filename_extension};
 
 #[derive(Debug)]
 pub struct PackageLink {
@@ -228,39 +228,6 @@ fn split_version_from_filename(filename: &str, canonical_name: &str) -> Option<u
     None
 }
 
-// fn parse_url_file_name(
-//     file_name: &str,
-//     canonical_name: &str,
-// ) -> Result<(String, String, String, Option<WheelInfo>)> {
-//     // 从文件名拆分出文件名后缀
-//     let (filename_base, filename_ext) = split_filename_extension(&file_name)?;
-
-//     let (package_version, wheel) = if is_wheel_file(filename_ext) {
-//         let (package_version, wheel) = parse_wheel_info(filename_base)?;
-
-//         (package_version, Some(wheel))
-//     } else {
-//         if !is_archive_file(filename_ext) {
-//             bail!("no support extension: {}", file_name);
-//         }
-
-//         let Some(version_start) = split_version_from_filename(filename_base, canonical_name) else {
-//             panic!("{} does not match {}", filename_base, canonical_name)
-//         };
-
-//         let package_version = filename_base[version_start..].to_string();
-
-//         (package_version, None)
-//     };
-
-//     Ok((
-//         filename_base.to_string(),
-//         filename_ext.to_string(),
-//         package_version,
-//         wheel,
-//     ))
-// }
-
 lazy_static! {
     static ref WHEEL_EXTENSION: &'static str = ".whl";
 }
@@ -290,3 +257,4 @@ fn is_archive_file(extension: &str) -> bool {
 
     false
 }
+

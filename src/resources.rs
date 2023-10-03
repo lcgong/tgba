@@ -5,6 +5,7 @@ use rust_embed::RustEmbed;
 pub struct EmbededResources;
 
 
+#[derive(RustEmbed)]
+#[folder = "requirements/"]
+pub struct EmbededRequirements;
 
-
-// 

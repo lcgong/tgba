@@ -5,8 +5,8 @@ use std::{fs::File, path::PathBuf};
 use super::installer::Installer;
 
 pub async fn install_requirements(installer: &Installer) -> Result<()> {
-    use super::index::PyPI;
-    let pypi = PyPI::new("清华源", "https://pypi.tuna.tsinghua.edu.cn/simple");
+    // use super::index::PyPI;
+    // let pypi = PyPI::new("清华源", "https://pypi.tuna.tsinghua.edu.cn/simple");
 
     let cached_packages_dir = &installer.cached_packages_dir;
     if let Err(_err) = std::fs::create_dir_all(cached_packages_dir) {
@@ -22,9 +22,28 @@ pub async fn install_requirements(installer: &Installer) -> Result<()> {
     let mut requirements = extract_requirements(requirements_path).await?;
     requirements.append(&mut obligated_packages()?);
 
-    use super::index::project::download_requirement;
+    let pypi_mirrors = installer.pypi_mirrors();
+
+    use super::project::download_requirement;
     for requirement in &requirements {
-        download_requirement(installer, &pypi, requirement).await?;
+        let mut success = false;
+
+        for pypi in pypi_mirrors {
+            match download_requirement(installer, &pypi, requirement).await {
+                Ok(_) => {
+                    success = true;
+                    break;
+                }
+                Err(err) => {
+                    let msg = format!("下载{}出现错误: {}", requirement.name, err);
+                    installer.log_error(msg.as_str());
+                }
+            };
+        }
+
+        if !success {
+            bail!("需求{}无PYPI镜像可用", requirement.name)
+        }
     }
 
     offline_install_requirements(installer, requirements_path, cached_packages_dir)?;

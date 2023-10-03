@@ -3,8 +3,9 @@ use reqwest;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use super::config::{get_cpytion_candidates, get_pip_user_agent};
 use super::utils::parse_version;
+
+use super::config::{CPythonDistSource, Config, PyPIMirror};
 
 pub struct Installer {
     target_dir: PathBuf,
@@ -14,21 +15,24 @@ pub struct Installer {
     pub(crate) python_version_full: String,
     pub(crate) cached_packages_dir: PathBuf,
     pub(crate) pydist_dir: PathBuf,
-    pub(crate) pydist_source: (&'static str, &'static str),
+    pub(crate) pydist_source: CPythonDistSource,
     pub(crate) venv_dir: PathBuf,
     pub(crate) venv_python_path: PathBuf,
     pub(crate) client: reqwest::Client,
     pub platform_tag: Option<String>,
     pub support_tags_map: HashMap<String, u32>,
+
+    pypi_mirrors: Vec<PyPIMirror>,
 }
 
 impl Installer {
     pub fn new(target_dir: PathBuf) -> Result<Self, Error> {
         let tgba_dir = target_dir.join(".tgba");
 
-        let (py_ver, dist_url, dist_digest) = get_cpytion_candidates()?;
-        let python_version = parse_version(py_ver)?;
+        let config = Config::load()?;
+        let cpython_source = config.get_cpytion_source()?;
 
+        let python_version = parse_version(cpython_source.cpython_version())?;
         let nums = &python_version.release;
         if nums.len() < 3 {
             bail!("Python版本号不全: major.minor.micro")
@@ -45,8 +49,14 @@ impl Installer {
         venv_python_path.push("Scripts");
         venv_python_path.push("python.exe");
 
+        let mirrors = config
+            .get_pypi_mirrors()
+            .iter()
+            .map(|m| m.clone())
+            .collect();
+
         let client = reqwest::Client::builder()
-            .user_agent(get_pip_user_agent())
+            .user_agent(pip_user_agent(config.pip_version()))
             .build()?;
 
         Ok(Installer {
@@ -55,13 +65,14 @@ impl Installer {
             python_version_full,
             tgba_dir,
             pydist_dir: py_dist_dir,
-            pydist_source: (dist_url, dist_digest),
+            pydist_source: cpython_source.clone(),
             venv_python_path,
             venv_dir: py_venv_dir,
             cached_packages_dir,
             client,
             platform_tag: None,
             support_tags_map: HashMap::new(),
+            pypi_mirrors: mirrors,
         })
     }
 
@@ -76,6 +87,27 @@ impl Installer {
     pub fn log(&self, msg: &str) {
         println!("{}", msg);
     }
+
+    pub fn log_error(&self, msg: &str) {
+        println!("{}", msg);
+    }
+
+
+    pub fn pypi_mirrors(&self) -> &[PyPIMirror] {
+        &self.pypi_mirrors
+    }
+}
+
+fn pip_user_agent(pip_version: &str) -> String {
+    // pip/23.2.1 {"ci":null,"cpu":"AMD64",
+    //"implementation":{"name":"CPython","version":"3.11.4"},
+    //"installer":{"name":"pip","version":"23.2.1"},
+    //"openssl_version":"OpenSSL 1.1.1u  30 May 2023",
+    //"python":"3.11.4",
+    //"rustc_version":"1.72.1",
+    //"setuptools_version":"65.5.0",
+    //"system":{"name":"Windows","release":"10"}}
+    format!("pip/{}", pip_version)
 }
 
 pub async fn main() -> Result<()> {

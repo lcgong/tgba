@@ -5,16 +5,16 @@ use std::fs::File;
 use std::path::PathBuf;
 use url::Url;
 
-use super::super::download::{download, fetch_text};
-use super::super::installer::Installer;
+use super::download::{download, fetch_text};
+use super::installer::Installer;
 use super::link::{parse_link_from_url, PackageLink};
 use crate::pyenv::checksum;
 use crate::pyenv::utils::canonicalize_name;
 
-use super::PyPI;
+use super::config::PyPIMirror;
 
 pub struct ProjectIndex {
-    pypi: PyPI,
+    pypi: PyPIMirror,
     project_name: String,
     project_url: String,
     canonical_name: String,
@@ -22,7 +22,7 @@ pub struct ProjectIndex {
 }
 
 impl ProjectIndex {
-    pub fn new(pypi: &PyPI, project_name: &str) -> Self {
+    pub fn new(pypi: &PyPIMirror, project_name: &str) -> Self {
         let canonical_name = canonicalize_name(project_name);
 
         ProjectIndex {
@@ -34,7 +34,7 @@ impl ProjectIndex {
         }
     }
 
-    pub fn pypi(&self) -> &PyPI {
+    pub fn pypi(&self) -> &PyPIMirror {
         &self.pypi
     }
 
@@ -49,7 +49,7 @@ impl ProjectIndex {
 
 pub async fn download_requirement(
     installer: &Installer,
-    pypi: &PyPI,
+    pypi: &PyPIMirror,
     requirement: &Requirement,
 ) -> Result<()> {
     let project_name = requirement.name.as_str();
@@ -75,7 +75,12 @@ pub async fn download_requirement(
     let link = if candidates.len() > 0 {
         candidates[0]
     } else {
-        bail!("未在{}发现满足需求({})的包", pypi.name(), requirement)
+        bail!(
+            "未在{}发现满足需求({})的包: {}",
+            pypi.name(),
+            requirement,
+            project_index.project_url()
+        )
     };
 
     let cached_filename = &installer.cached_packages_dir.join(link.file_name());
@@ -85,6 +90,17 @@ pub async fn download_requirement(
         return Ok(());
     }
 
+    download_link(installer, pypi, link, cached_filename).await?;
+
+    Ok(())
+}
+
+async fn download_link(
+    installer: &Installer,
+    pypi: &PyPIMirror,
+    link: &PackageLink,
+    cached_filename: &PathBuf,
+) -> Result<()> {
     let buffer = download(
         installer,
         link.url(),
@@ -97,7 +113,7 @@ pub async fn download_requirement(
             bail!("文件sha256完整检查失败: {}", link.file_name())
         }
     } else {
-        println!("no checksum");
+        bail!("文件{}无checksum码", cached_filename.display())
     }
 
     let mut package_file = File::create(cached_filename)?;
@@ -136,40 +152,6 @@ fn is_cached_file_available(link: &PackageLink, cached_filename: &PathBuf) -> Re
 
     Ok(false)
 }
-
-// pub async fn get_project_index(client: &reqwest::Client) -> Result<(), Error> {
-//     let project_name = "jupyterlab";
-//     let target_env = TargetEnv::new();
-
-//     let project_url = "https://pypi.tuna.tsinghua.edu.cn/simple/jupyterlab/";
-//     // let resp = client.get(url).send().await?;
-//     // let page = resp.text().await?;
-
-//     let mut project_index = ProjectIndex {
-//         project_name: project_name.to_string(),
-//         canonical_name: canonicalize_name(project_name),
-//         links: Vec::new(),
-//     };
-
-//     use std::str::FromStr;
-
-//     let requirement = "torch~=2.0.0";
-//     let requirement = Requirement::from_str(requirement)?;
-
-//     println!(
-//         "package-name: {}, extras: {:?}, python_version: {:?}",
-//         requirement.name, requirement.extras, requirement.marker,
-//     );
-
-//     parse_index_html_page(&mut project_index, project_url, PAGE_CONTENT2)?;
-//     let candidates = find_candidates_links(&target_env, &project_index, &requirement)?;
-
-//     for link in candidates {
-//         println!("link: {} {}", link.package_version(), link.filename_base());
-//     }
-
-//     Ok(())
-// }
 
 fn parse_index_html_page(
     project_index: &mut ProjectIndex,

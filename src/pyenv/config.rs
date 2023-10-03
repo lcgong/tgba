@@ -1,48 +1,100 @@
-use anyhow::Error;
-use lazy_static::lazy_static;
+use anyhow::{bail, Result};
+use serde_derive::Deserialize;
+// use lazy_static::lazy_static;
 
-use super::index::PyPI;
+// use super::index::PyPI;
 
-pub static PIP_VERSION: &str = "23.2.1";
-
-/// https://github.com/indygreg/python-build-standalone/releases
-pub static CPYTHON_DISTS: [(&str, &str, &str); 2] = [
-    (
-        "3.11.5-20230826",
-        "https://gitee.com/lyucg/python-dists/releases/download/20230826/cpython-3.11.5%2020230826-x86_64-pc-windows-msvc-shared-install_only.tar.gz",
-        "00f002263efc8aea896bcfaaf906b1f4dab3e5cd3db53e2b69ab9a10ba220b97"
-    ),
-    (
-        "3.8.17-20230826",
-        "https://gitee.com/lyucg/python-dists/releases/download/20230826/cpython-3.8.17%2020230826-x86_64-pc-windows-msvc-shared-install_only.tar.gz",
-        "6428e1b4e0b4482d390828de7d4c82815257443416cb786abe10cb2466ca68cd"
-    ),    
-];
-
-
-lazy_static! {
-    pub static ref PYPI_MIRRORS: [PyPI; 1] = [
-        PyPI::new("清华源", "https://pypi.tuna.tsinghua.edu.cn/simple"),
-    ];    
-}
+// lazy_static! {
+//     pub static ref PYPI_MIRRORS: [PyPI; 1] = [PyPI::new(
+//         "清华源",
+//         "https://pypi.tuna.tsinghua.edu.cn/simple"
+//     ),];
+// }
 
 pub static OBLIGATED_PACKAGES: [&str; 2] = ["setuptools>=68.0.0", "wheel>=0.38.0"];
 
+#[derive(Debug, Deserialize)]
+pub struct Config {
+    pip_version: String,
+    pypi: Vec<PyPIMirror>,
+    cpython: Vec<CPythonDistSource>,
+}
 
-pub fn get_cpytion_candidates() -> Result<(&'static str, &'static str, &'static str), Error> {
-    use super::utils::get_windows_major_versoin;
-    
-    let win_major = get_windows_major_versoin()?;
+#[derive(Debug, Clone, Deserialize)]
+pub struct PyPIMirror {
+    name: String,
+    url: String,
+}
 
-    if win_major > 7 {
-        Ok(CPYTHON_DISTS[0])
-    } else {
-        Ok(CPYTHON_DISTS[1])
+#[derive(Debug, Clone, Deserialize)]
+pub struct CPythonDistSource {
+    python_version: String,
+    version: String,
+    url: String,
+    checksum: String,
+}
+
+impl Config {
+    pub fn load() -> Result<Config> {
+        use crate::resources::EmbededRequirements;
+        let embed_config = EmbededRequirements::get("config.toml").unwrap();
+        let content = String::from_utf8_lossy(embed_config.data.as_ref());
+        let config: Config = toml::from_str(content.as_ref())?;
+
+        Ok(config)
+    }
+
+    pub fn pip_version(&self) -> &str {
+        &self.pip_version
+    }
+
+    pub fn get_cpytion_source(&self) -> Result<&CPythonDistSource> {
+        use super::utils::get_windows_major_versoin;
+        let win_major = get_windows_major_versoin()?;
+        let python_version = if win_major > 7 { "3.11" } else { "3.8" };
+
+        for dist in &self.cpython {
+            if dist.python_version == python_version {
+                return Ok(dist);
+            }
+        }
+
+        bail!("在安装配置文件没找到{}下载信息", python_version)
+    }
+
+    pub fn get_pypi_mirrors(&self) -> &[PyPIMirror] {
+        &self.pypi
     }
 }
 
-pub fn get_pip_user_agent() -> String {
-    // pip/23.2.1 {"ci":null,"cpu":"AMD64","implementation":{"name":"CPython","version":"3.11.4"},"installer":{"name":"pip","version":"23.2.1"},"openssl_version":"OpenSSL 1.1.1u  30 May 2023","python":"3.11.4","rustc_version":"1.72.1","setuptools_version":"65.5.0","system":{"name":"Windows","release":"10"}}
-    format!("pip/{}", PIP_VERSION)
+impl PyPIMirror {
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn url(&self) -> &str {
+        &self.url
+    }
+
+    pub fn package_url(&self, canonical_name: &str) -> String {
+        if self.url.ends_with('/') {
+            format!("{}{}/", self.url, canonical_name)
+        } else {
+            format!("{}/{}/", self.url, canonical_name)
+        }
+    }
 }
 
+impl CPythonDistSource {
+    pub fn cpython_version(&self) -> &str {
+        &self.version
+    }
+
+    pub fn url(&self) -> &str {
+        &self.url
+    }
+
+    pub fn checksum(&self) -> &str {
+        &self.checksum
+    }
+}

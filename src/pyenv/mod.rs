@@ -1,7 +1,8 @@
 mod archive;
 pub mod utils;
 pub mod config;
-pub mod index;
+pub mod link;
+pub mod project;
 pub mod requirements;
 
 pub mod installer;

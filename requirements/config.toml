@@ -1,0 +1,22 @@
+pip_version = "23.2.1"
+
+[[cpython]]
+python_version = "3.11"
+version = "3.11.5-20230826"
+url = "https://gitee.com/lyucg/python-dists/releases/download/20230826/cpython-3.11.5%2020230826-x86_64-pc-windows-msvc-shared-install_only.tar.gz"
+checksum = "00f002263efc8aea896bcfaaf906b1f4dab3e5cd3db53e2b69ab9a10ba220b97"
+
+[[cpython]]
+python_version = "3.8"
+version = "3.8.17-20230826"
+url = "https://gitee.com/lyucg/python-dists/releases/download/20230826/cpython-3.8.17%2020230826-x86_64-pc-windows-msvc-shared-install_only.tar.gz"
+checksum = "6428e1b4e0b4482d390828de7d4c82815257443416cb786abe10cb2466ca68cd"
+
+
+[[pypi]]
+name = "清华源"
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+
+[[pypi]]
+name = "阿里云"
+url = "http://mirrors.aliyun.com/pypi/simple"

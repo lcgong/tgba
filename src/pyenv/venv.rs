@@ -65,16 +65,8 @@ pub fn set_platform_info(installer: &mut Installer) -> Result<()> {
         support_tags_map.insert(tag.to_string(), i as u32);
     }
 
-    // println!("{:?}", support_tags_map);
-
     Ok(())
 }
-
-// #[derive(Debug, Deserialize)]
-// struct PythonPlatformTags {
-//     pub platform_tag: String,
-//     pub support_tags: Vec<String>,
-// }
 
 pub async fn ensure_python_dist(installer: &Installer) -> Result<()> {
     let pydist_dir = &installer.pydist_dir;
@@ -91,18 +83,25 @@ pub async fn ensure_python_dist(installer: &Installer) -> Result<()> {
         bail!("创建目录{}失败: {}", pydist_dir.display(), _err)
     }
 
-    let (dist_url, dist_digest) = installer.pydist_source;
+    let cpython_source = &installer.pydist_source;
+
+    // let (dist_url, dist_digest) = &installer.pydist_source;
 
     use super::utils::split_filename_extension;
 
-    let Ok((_file_base, file_ext)) = split_filename_extension(dist_url) else {
-        bail!("地址文件解析扩展名错误: {}", dist_url)
+    let Ok((_file_base, file_ext)) = split_filename_extension(cpython_source.url()) else {
+        bail!("地址文件解析扩展名错误: {}", cpython_source.url())
     };
 
-    let buffer = download(installer, dist_url, &format!("下载CPython-{}安装包", pyver)).await?;
+    let buffer = download(
+        installer,
+        cpython_source.url(),
+        &format!("下载CPython-{}安装包", pyver),
+    )
+    .await?;
 
-    if !checksum("sha256", &buffer, dist_digest)? {
-        bail!("hash check of {} failed", dist_url)
+    if !checksum("sha256", &buffer, cpython_source.checksum())? {
+        bail!("hash check of {} failed", cpython_source.url())
     }
 
     installer.log(format!("解压CPython-{}安装包", pyver).as_str());
@@ -168,8 +167,6 @@ pub fn venv_python_cmd(installer: &Installer, args: &[&str]) -> Result<std::proc
         env::join_paths(paths)?
     };
 
-    println!("path: {}", &path_env.to_string_lossy());
-
     let mut cmd = Command::new(&python_bin);
     cmd.env("PATH", path_env.to_string_lossy().as_ref());
     cmd.env("VIRTUAL_ENV", installer.venv_dir.to_string_lossy().as_ref());
@@ -184,7 +181,6 @@ pub fn venv_python_cmd(installer: &Installer, args: &[&str]) -> Result<std::proc
         .collect::<Vec<String>>()
         .join(" ");
     let prog_cmd = format!("{} {}", cmd.get_program().to_string_lossy(), args_str);
-    println!("cmd: {}", prog_cmd);
 
     let output = match cmd.output() {
         Ok(output) => output,

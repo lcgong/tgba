@@ -25,7 +25,7 @@ async fn main() -> Result<()> {
     // use crate::pyenv::config::Config;
     // Config::load()?;
 
-    pyenv::installer::main().await?;
+    // pyenv::installer::main().await?;
 
     // download(&client).await?;
 
@@ -33,6 +33,16 @@ async fn main() -> Result<()> {
     // get_project_index(&client).await?;
 
     // println!("{}", "a__b_c".replace("_", "-"));
+
+    let target_dir = std::env::current_dir()?;
+
+    use pyenv::{create_winlnk, ensure_python_venv, install_requirements, Installer};
+
+    let mut installer = Installer::new(target_dir)?;
+
+    ensure_python_venv(&mut installer).await?;
+    install_requirements(&installer).await?;
+    create_winlnk(&installer, &installer.target_dir())?;
 
     Ok(())
 }

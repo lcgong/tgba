@@ -114,20 +114,3 @@ fn pip_user_agent(pip_version: &str) -> String {
     //"system":{"name":"Windows","release":"10"}}
     format!("pip/{}", pip_version)
 }
-
-pub async fn main() -> Result<()> {
-    let target_dir = std::env::current_dir()?;
-
-    let mut installer = Installer::new(target_dir)?;
-
-    use super::venv::ensure_python_venv;
-    ensure_python_venv(&mut installer).await?;
-
-    use super::requirements::install_requirements;
-    install_requirements(&installer).await?;
-
-    use super::winlnk::create_winlnk;
-    create_winlnk(&installer, &installer.target_dir.clone())?;
-
-    Ok(())
-}

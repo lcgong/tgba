@@ -1,3 +1,6 @@
 .tgba
+.ipynb_checkpoints
+.virtual_documents
 *.lnk
+*.ipynb
 /target

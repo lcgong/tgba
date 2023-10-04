@@ -8,6 +8,7 @@ mod requirements;
 mod utils;
 mod venv;
 mod winlnk;
+pub mod scriptfixs;
 
 pub use link::PackageLink;
 pub use project::ProjectIndex;

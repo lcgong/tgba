@@ -34,15 +34,22 @@ async fn main() -> Result<()> {
 
     // println!("{}", "a__b_c".replace("_", "-"));
 
+    // use regex::{Regex, Captures};
+
+    use pyenv::Installer;
     let target_dir = std::env::current_dir()?;
-
-    use pyenv::{create_winlnk, ensure_python_venv, install_requirements, Installer};
-
     let mut installer = Installer::new(target_dir)?;
 
-    ensure_python_venv(&mut installer).await?;
-    install_requirements(&installer).await?;
-    create_winlnk(&installer, &installer.target_dir())?;
+    use pyenv::scriptfixs::fix_patches;
+    fix_patches(&installer)?;
+
+    // use pyenv::{create_winlnk, ensure_python_venv, install_requirements, Installer};
+
+    // let mut installer = Installer::new(target_dir)?;
+
+    // ensure_python_venv(&mut installer).await?;
+    // install_requirements(&installer).await?;
+    // create_winlnk(&installer, &installer.target_dir())?;
 
     Ok(())
 }

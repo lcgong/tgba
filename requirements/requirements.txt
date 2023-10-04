@@ -19,8 +19,8 @@ scikit-learn
 xgboost
 mlxtend
 
-# torch
-# torchvision
+torch
+torchvision
 
 pulp
 mip
@@ -30,3 +30,8 @@ python-docx
 
 duckdb
 magic-duckdb
+
+jupyterlab
+python-lsp-server
+pylint
+autopep8

@@ -7,13 +7,16 @@ use super::Installer;
 
 pub fn fix_patches(installer: &Installer) -> Result<()> {
     fix_win_activate_scripts(installer)?;
+
     fix_matplotlibrc(installer)?;
+
+    disable_labtensions(installer)?;
 
     Ok(())
 }
 
 /// 将虚拟环境提示符改为(TGBA)
-pub fn fix_win_activate_scripts(installer: &Installer) -> Result<()> {
+fn fix_win_activate_scripts(installer: &Installer) -> Result<()> {
     lazy_static! {
         static ref PTN1: Regex = Regex::new(r#"(set PROMPT=).*(%PROMPT%)"#).unwrap();
         static ref PTN2: Regex = Regex::new(r#"(set VIRTUAL_ENV_PROMPT=).*"#).unwrap();
@@ -57,7 +60,7 @@ pub fn fix_win_activate_scripts(installer: &Installer) -> Result<()> {
     Ok(())
 }
 
-pub fn fix_matplotlibrc(installer: &Installer) -> Result<()> {
+fn fix_matplotlibrc(installer: &Installer) -> Result<()> {
     lazy_static! {
         static ref SANS_FONTS: Vec<&'static str> = vec![
             "Noto Sans CJK SC",
@@ -109,6 +112,36 @@ pub fn fix_matplotlibrc(installer: &Installer) -> Result<()> {
         if let Err(err) = writeln!(file, "{}", line) {
             bail!("写入文件{}错误: {}", rcfile_path.display(), err);
         }
+    }
+
+    Ok(())
+}
+
+fn disable_labtensions(installer: &Installer) -> Result<()> {
+    let mut labconfig_path = installer.venv_dir.clone();
+    labconfig_path.extend(["etc", "jupyter", "labconfig"]);
+    if let Err(err) = std::fs::create_dir_all(&labconfig_path) {
+        bail!(
+            "创建jupyterlab配置目录{}失败: {}",
+            labconfig_path.display(),
+            err
+        )
+    }
+    labconfig_path.push("page_config.json");
+
+    let labconfig = r#"
+{
+    "disabledExtensions": {
+        "@jupyterlab/cell-toolbar-extension": true,
+        "@jupyterlab/debugger-extension": true
+    }
+}    
+"#;
+
+    use std::io::Write;
+    let mut file = File::create(&labconfig_path)?;
+    if let Err(err) = writeln!(file, "{}", labconfig) {
+        bail!("写入文件{}错误: {}", labconfig_path.display(), err);
     }
 
     Ok(())

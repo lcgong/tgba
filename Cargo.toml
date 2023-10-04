@@ -1,7 +1,9 @@
 [package]
-name = "tgbainstaller"
-version = "0.1.0"
+name = "tgba-installer"
+version = "0.2.0"
 edition = "2021"
+
+build = "build.rs"
 
 [dependencies]
 anyhow = "1.0.75"
@@ -36,3 +38,13 @@ opt-level = "z"
 lto = true
 codegen-units = 1
 panic = "abort"
+
+[build-dependencies]
+winres = "0.1.12"
+
+
+[package.metadata.winres]
+ProductName = "天工业务数据分析(TGBA)实验环境自助安装程序"
+FileDescription = "天工业务数据分析(TGBA)实验环境自助安装程序"
+OriginalFilename = "TGBA-Installer.exx"
+LegalCopyright = "天津工业大学经济与管理学院 © 2023"

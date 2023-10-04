@@ -9,8 +9,6 @@ pub mod style;
 // mod winapp;
 pub mod pyenv;
 
-// pub mod pypip;
-
 // use winapp::main_app;
 
 // fn main() {

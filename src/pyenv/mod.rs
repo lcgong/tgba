@@ -7,6 +7,7 @@ mod project;
 mod requirements;
 mod scriptfixs;
 mod utils;
+mod fonts;
 mod venv;
 mod winlnk;
 

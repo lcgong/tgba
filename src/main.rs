@@ -6,6 +6,8 @@
 pub mod resources;
 pub mod step;
 pub mod style;
+pub mod demo;
+pub mod myapp;
 // mod winapp;
 pub mod pyenv;
 
@@ -21,18 +23,24 @@ use anyhow::Result;
 #[tokio::main]
 async fn main() -> Result<()> {
 
-    use pyenv::Installer;
-    let target_dir = std::env::current_dir()?;
+    // use demo::win_main;
+    // win_main().await;
 
-    use pyenv::{create_winlnk, fix_patches};
-    use pyenv::{ensure_python_venv, install_requirements};
+    let mut app = myapp::MyApp::new();
+    app.run();
 
-    let mut installer = Installer::new(target_dir)?;
+    // use pyenv::Installer;
+    // let target_dir = std::env::current_dir()?;
 
-    ensure_python_venv(&mut installer).await?;
-    install_requirements(&installer).await?;
-    create_winlnk(&installer, &installer.target_dir())?;
-    fix_patches(&installer)?;
+    // use pyenv::{create_winlnk, fix_patches};
+    // use pyenv::{ensure_python_venv, install_requirements};
+
+    // let mut installer = Installer::new(target_dir)?;
+
+    // ensure_python_venv(&mut installer).await?;
+    // install_requirements(&installer).await?;
+    // create_winlnk(&installer, &installer.target_dir())?;
+    // fix_patches(&installer)?;
 
     Ok(())
 }

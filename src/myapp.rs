@@ -1,72 +1,42 @@
-use fltk::frame::Frame;
-use fltk::group::Flex;
-use fltk::prelude::GroupExt;
-use fltk::prelude::WindowExt;
-use fltk::prelude::{WidgetBase, WidgetExt};
-use fltk::window::DoubleWindow;
-// use fltk::prelude::{ImageExt};
-use fltk::enums::Color;
-use fltk::image::IcoImage;
-// use fltk::image::SvgImage;
-use fltk::app::font_index;
-use fltk::enums::Font;
+use fltk::{
+    button::Button,
+    frame::Frame,
+    group::{Flex, Group},
+    image::IcoImage,
+    prelude::{GroupExt, WidgetBase, WidgetExt, WindowExt},
+    window::DoubleWindow,
+};
+use std::any::Any;
 
-pub struct AppStyle {
-    pub font_bold_zh: Font,
-    pub font_bold_en: Font,
-    pub font_zh: Font,
-    pub tgu_color: Color,
-    pub darkgrey: Color,
-}
-
-impl Default for AppStyle {
-    fn default() -> Self {
-        let font_bold_en = { Font::by_index(font_index("BArial").unwrap()) };
-        let font_bold_zh = {
-            if let Some(idx) = font_index("B微软雅黑") {
-                Font::by_index(idx)
-            } else if let Some(idx) = font_index("B黑体") {
-                Font::by_index(idx)
-            } else {
-                panic!("未找到系统中文字体")
-            }
-        };
-
-        let font_zh = {
-            if let Some(idx) = font_index("B微软雅黑") {
-                Font::by_index(idx)
-            } else if let Some(idx) = font_index("B黑体") {
-                Font::by_index(idx)
-            } else {
-                panic!("未找到系统中文字体")
-            }
-        };
-
-        let tgu_color = Color::from_rgb(113, 36, 107);
-        let darkgrey = Color::from_rgb(80, 80, 80);
-
-        Self {
-            font_bold_zh,
-            font_bold_en,
-            font_zh,
-            tgu_color,
-            darkgrey,
-        }
-    }
-}
+use super::{
+    navbar::PhaseNavBar,
+    steps::{
+        step1::{Step1Message, Step1Tab},
+        step2::{Step2Message, Step2Tab},
+        step3::{Step3Message, Step3Tab},
+    },
+    style::AppStyle,
+};
+//
 
 pub struct MyApp {
     app: fltk::app::App,
     r: fltk::app::Receiver<Message>,
     s: fltk::app::Sender<Message>,
-    panel: Flex,
+    // container: Flex,
+    navbar: PhaseNavBar,
+    // main_panel: Option<InstallerPanel>,
+    step_idx: usize,
+    tabs: Group,
+    objs: Vec<Box<dyn Any>>,
 }
 
+#[derive(Debug)]
 pub enum Message {
-    Step1,
-    Step2,
+    Step1(Step1Message),
+    Step2(Step2Message),
+    Step3(Step3Message),
 }
-
 
 fn app_title(parent: &mut Flex, style: &AppStyle) {
     use fltk::enums::Align;
@@ -82,7 +52,7 @@ fn app_title(parent: &mut Flex, style: &AppStyle) {
     title_zh.set_label_color(style.tgu_color);
 
     let mut title_en = Frame::default()
-        .with_label("TianGong Business Analytics (TGBA) Installer")
+        .with_label("TianGong Business Analytics (TGBA) Lab Installer")
         .with_align(Align::Inside | Align::Left);
     title_en.set_label_font(style.font_bold_en);
     title_en.set_label_size(18);
@@ -105,26 +75,19 @@ fn app_footer(parent: &mut Flex, style: &AppStyle) {
     parent.fixed(&footer, 18);
 }
 
-
-
 impl MyApp {
     pub fn new() -> Self {
         let app = fltk::app::App::default().with_scheme(fltk::app::Scheme::Gtk);
         fltk::app::background(255, 255, 255);
         app.load_system_fonts();
-
         let style = AppStyle::default();
 
-        // let fonts = fltk::app::fonts();
-        // for f in fonts {
-        //     println!("font: {}", f);
-        // }
         let (s, r) = fltk::app::channel::<Message>();
 
         let icon = IcoImage::load(&"resources/tgba-jupyterlab-48x48.ico").unwrap();
 
         let mut main_win = DoubleWindow::default()
-            .with_size(700, 400)
+            .with_size(700, 300)
             .center_screen()
             .with_label("TGBA安装程序");
         main_win.set_icon(Some(icon));
@@ -135,22 +98,73 @@ impl MyApp {
 
         app_title(&mut main_flex, &style);
 
-        let panel = Flex::default().row();
-        panel.end();
+        let navbar = PhaseNavBar::new(&style);
+        main_flex.fixed(navbar.navbar_row(), 40);
+
+        let mut tabs = Group::default_fill();
+        tabs.end();
 
         app_footer(&mut main_flex, &style);
 
         main_win.end();
         main_win.show();
 
-        let s1 = s.clone();
-        tokio::spawn(async move {
-            use std::time::Duration;
-            tokio::time::sleep(Duration::from_millis(2000)).await;
-            s1.send(Message::Step1);
-        });
+        s.send(Message::Step1(Step1Message::Enter));
 
-        MyApp { app, r, s, panel }
+        let step1 = Step1Tab::new(&mut tabs, &style, s.clone(), r.clone());
+        let step2 = Step2Tab::new(&mut tabs, &style, s.clone(), r.clone());
+        let step3 = Step3Tab::new(&mut tabs, &style, s.clone(), r.clone());
+
+        let mut flex = Flex::default().row();
+        flex.resize(tabs.x(), tabs.y(), tabs.w(), tabs.h());
+        let btn = Button::default().with_label("B1");
+        flex.fixed(&btn, 40);
+        let btn = Button::default().with_label("B2");
+        flex.fixed(&btn, 40);
+        tabs.add(&flex);
+
+        let mut flex = Flex::default().column();
+        flex.resize(tabs.x(), tabs.y(), tabs.w(), tabs.h());
+        let btn = Button::default().with_label("C1");
+        flex.fixed(&btn, 40);
+        let btn = Button::default().with_label("C2");
+        flex.fixed(&btn, 40);
+        tabs.add(&flex);
+
+        let mut objs: Vec<Box<dyn Any>> = Vec::new();
+        objs.push(Box::new(step1));
+        objs.push(Box::new(step2));
+        objs.push(Box::new(step3));
+
+        MyApp {
+            app,
+            r,
+            s,
+            step_idx: 0,
+            tabs,
+            navbar,
+            objs, // main_panel: None,
+        }
+    }
+
+    fn set_step(&mut self, step_idx: usize) {
+        self.step_idx = step_idx;
+        self.navbar.set_activate(step_idx as i32);
+
+        let step_idx = step_idx as i32;
+        for idx in 0..self.tabs.children() {
+            if idx != step_idx {
+                self.tabs.child(idx).unwrap().hide();
+            } else {
+                self.tabs.child(idx).unwrap().show();
+            }
+        }
+
+    }
+
+    #[inline]
+    fn get_step_mut<T: Any>(&mut self) -> &mut T {
+        self.objs[self.step_idx].downcast_mut::<T>().unwrap()
     }
 
     pub fn run(&mut self) {
@@ -163,33 +177,58 @@ impl MyApp {
 
             use Message::*;
             match msg {
-                Step1 => {
-                    self.panel.clear();
-                    let btn = fltk::button::Button::default().with_label("测试1");
-                    self.panel.add(&btn);
+                Step1(Step1Message::Enter) => {
+                    self.set_step(0);
 
-                    tokio::spawn(async move {
-                        use std::time::Duration;
-                        tokio::time::sleep(Duration::from_millis(2000)).await;
-                        s.send(Step2);
-                    });
+                    let d = self.get_step_mut::<Step1Tab>();
+                    d.a();
                 }
-                Step2 => {
-                    self.panel.clear();
-                    let btn = fltk::button::Button::default().with_label("测试2");
-                    self.panel.add(&btn);
+                Step1(Step1Message::Done) => {
+                    s.send(Step2(Step2Message::Enter));
+                }
+                Step1(msg) => {
+                    let d = self.get_step_mut::<Step1Tab>();
+                    d.handle_message(msg);
+                }
+                //
+                Step2(msg @ Step2Message::Enter) => {
+                    self.set_step(1);
+                    let d = self.get_step_mut::<Step2Tab>();
+                    d.b();
+                    d.handle_message(msg);
 
-                    tokio::spawn(async move {
-                        use std::time::Duration;
-                        tokio::time::sleep(Duration::from_millis(2000)).await;
-                        s.send(Step1);
-                    });
+                }
+                Step2(Step2Message::Done) => {
+                    s.send(Step3(Step3Message::Enter));
+                }
+                Step2(msg) => {
+                    let d = self.get_step_mut::<Step2Tab>();
+                    d.handle_message(msg);
+                }
+                //
+                Step3(msg @ Step3Message::Enter) => {
+                    self.set_step(2);
+                    let d = self.get_step_mut::<Step3Tab>();
+                    d.c();
+                    d.handle_message(msg);
+                }
+                Step3(Step3Message::Done) => {
+                    println!("step3: done");
+                    s.send(Step1(Step1Message::Enter));
+                }
+                Step3(msg) => {
+                    let d = self.get_step_mut::<Step3Tab>();
+                    d.handle_message(msg);
                 }
             }
         }
     }
 
-    pub fn choose_target_dir_panel(&mut self) {
-    
+    pub fn choose_target_dir_panel(&mut self) {}
+}
+
+impl Default for MyApp {
+    fn default() -> Self {
+        Self::new()
     }
 }

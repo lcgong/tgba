@@ -1,65 +1,52 @@
+use fltk::{
+    app::font_index,
+    enums::{Color, Font},
+};
 
-use fltk::enums::{Color, Font};
-use fltk::app;
-
-#[derive(Clone)]
 pub struct AppStyle {
-    pub prog_title_font: Font,
-    pub prog_title_color: Color,
-    pub prog_title_en_font: Font,
-    pub prog_title_en_color: Color,
-    pub copyright_font: Font,
-    pub copyright_color: Color,
-    pub step_title_font: Font,
-    pub step_message_font: Font,
-    pub step_title_fontsize: i32,
-    pub step_message_fontsize: i32,
-    pub exit_btn_color: Color,
-    pub exit_btn_sel_color: Color,
-    pub exit_btn_label_color: Color,
+    pub font_bold_zh: Font,
+    pub font_bold_en: Font,
+    pub font_zh: Font,
+    pub tgu_color: Color,
+    pub darkgrey: Color,
 }
 
-impl AppStyle {
-    pub fn default(app: &app::App) -> AppStyle {
-        app.load_system_fonts();
-    
-        // for i in app::fonts() {
-        //     println!("{}", i);
+impl Default for AppStyle {
+    fn default() -> Self {
+        // let fonts = fltk::app::fonts();
+        // for f in fonts {
+        //     println!("font: {}", f);
         // }
-    
-        let prog_title_en_font = {
-                let idx = app::font_index("BArial").unwrap();
+        let font_bold_en = { Font::by_index(font_index("BArial").unwrap()) };
+        let font_bold_zh = {
+            if let Some(idx) = font_index("B微软雅黑") {
                 Font::by_index(idx)
-        };
-    
-    
-        let font = {
-            if let Some(idx) = app::font_index("B微软雅黑") {
-                println!("fo");
+            } else if let Some(idx) = font_index("B黑体") {
                 Font::by_index(idx)
             } else {
-                let idx = app::font_index(" 黑体").unwrap();
-                Font::by_index(idx)
+                panic!("未找到系统中文字体")
             }
         };
-    
+
+        let font_zh = {
+            if let Some(idx) = font_index("B微软雅黑") {
+                Font::by_index(idx)
+            } else if let Some(idx) = font_index("B黑体") {
+                Font::by_index(idx)
+            } else {
+                panic!("未找到系统中文字体")
+            }
+        };
+
         let tgu_color = Color::from_rgb(113, 36, 107);
         let darkgrey = Color::from_rgb(80, 80, 80);
-        AppStyle {
-            prog_title_font: font.clone(),
-            prog_title_en_font,
-            copyright_font: font.clone(),
-            step_title_font: font.clone(),
-            step_message_font: font.clone(),
-            step_title_fontsize: 18,
-            step_message_fontsize: 14,
-            prog_title_color: tgu_color,
-            prog_title_en_color: tgu_color,
-            copyright_color: darkgrey,
-            exit_btn_color: Color::from_rgb(200, 20, 20),
-            exit_btn_sel_color: Color::from_rgb(255, 20, 20),
-            exit_btn_label_color: Color::White,
+
+        Self {
+            font_bold_zh,
+            font_bold_en,
+            font_zh,
+            tgu_color,
+            darkgrey,
         }
-        
     }
 }

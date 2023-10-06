@@ -4,13 +4,17 @@
 
 // mod heading;
 pub mod resources;
-pub mod step;
-pub mod style;
+// pub mod step;
 pub mod demo;
 pub mod myapp;
-// mod winapp;
+pub mod navbar;
+pub mod panels;
 pub mod pyenv;
+pub mod style;
 
+pub mod steps;
+
+mod main2;
 // use winapp::main_app;
 
 // fn main() {
@@ -22,7 +26,6 @@ use anyhow::Result;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-
     // use demo::win_main;
     // win_main().await;
 

@@ -8,13 +8,11 @@ pub mod resources;
 pub mod demo;
 pub mod myapp;
 pub mod navbar;
-pub mod panels;
 pub mod pyenv;
 pub mod style;
 
 pub mod steps;
 
-mod main2;
 // use winapp::main_app;
 
 // fn main() {

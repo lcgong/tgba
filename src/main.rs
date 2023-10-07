@@ -9,6 +9,7 @@ pub mod demo;
 pub mod myapp;
 pub mod pyenv;
 pub mod style;
+pub mod dialog;
 
 pub mod steps;
 

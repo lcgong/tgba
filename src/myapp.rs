@@ -1,6 +1,7 @@
 use fltk::{
     app::{Receiver, Sender},
     button::Button,
+    enums::Event,
     frame::Frame,
     group::{Flex, Group},
     image::IcoImage,
@@ -30,6 +31,8 @@ pub struct MyApp {
     step_idx: usize,
     step_group: Group,
     step_objs: Vec<Box<dyn Any>>,
+    // main_win: DoubleWindow,
+    style: AppStyle,
 }
 
 #[derive(Debug)]
@@ -69,17 +72,17 @@ fn app_title(parent: &mut Flex, style: &AppStyle) {
 fn app_footer(s: &Sender<Message>, parent: &mut Flex, style: &AppStyle) {
     use fltk::enums::Align;
 
-    let mut panel = Flex::default().row();
+    let panel = Flex::default().row();
     parent.fixed(&panel, 24);
 
-    let mut btn = Button::default().with_label("退出");
-    panel.fixed(&btn, 40);
-    btn.set_callback({
-        let s = s.clone();
-        move |_| {
-            s.send(Message::Quit);
-        }
-    });
+    // let mut btn = Button::default().with_label("退出");
+    // panel.fixed(&btn, 40);
+    // btn.set_callback({
+    //     let s = s.clone();
+    //     move |_| {
+    //         s.send(Message::Quit);
+    //     }
+    // });
 
     // Frame::default();
 
@@ -99,40 +102,25 @@ fn app_footer(s: &Sender<Message>, parent: &mut Flex, style: &AppStyle) {
 impl MyApp {
     pub fn new() -> Self {
         let app = fltk::app::App::default().with_scheme(fltk::app::Scheme::Gtk);
-        fltk::app::background(255, 255, 255);
 
         app.load_system_fonts();
         let style = AppStyle::default();
 
-        let (s, r) = fltk::app::channel::<Message>();
+        fltk::app::background(255, 255, 255);
+        fltk::app::set_visible_focus(false);
+        fltk::app::set_font(style.font_zh);
+        fltk::app::set_font_size(12);
 
-        let icon = IcoImage::load(&"resources/tgba-jupyterlab-48x48.ico").unwrap();
+        let (s, r) = fltk::app::channel::<Message>();
 
         let mut main_win = DoubleWindow::default()
             .with_size(700, 300)
             .center_screen()
             .with_label("TGBA安装程序");
-        main_win.set_icon(Some(icon));
 
-        // main_win.set_border(false);
-        main_win.handle({
-            // 按住鼠标移动窗口
-            let mut x = 0;
-            let mut y = 0;
-            move |w, ev| match ev {
-                fltk::enums::Event::Push => {
-                    let coords = fltk::app::event_coords();
-                    x = coords.0;
-                    y = coords.1;
-                    true
-                }
-                fltk::enums::Event::Drag => {
-                    w.set_pos(fltk::app::event_x_root() - x, fltk::app::event_y_root() - y);
-                    true
-                }
-                _ => false,
-            }
-        });
+        main_win.begin();
+        let icon = IcoImage::load(&"resources/tgba-jupyterlab-48x48.ico").unwrap();
+        main_win.set_icon(Some(icon));
 
         let mut main_flex = Flex::default_fill().column();
         main_flex.set_margins(10, 10, 10, 10);
@@ -142,8 +130,16 @@ impl MyApp {
         let navbar = PhaseNavBar::new(&style);
         main_flex.fixed(navbar.navbar_row(), 40);
 
-        let mut tabs = Group::default_fill();
-        tabs.end();
+        let mut step_group = Group::default_fill();
+        let step_objs: Vec<Box<dyn Any>> = vec![
+            Box::new(Step1Tab::new(&mut step_group, &style, s.clone())),
+            Box::new(Step2Tab::new(&mut step_group, &style, s.clone())),
+            Box::new(Step3Tab::new(&mut step_group, &style, s.clone())),
+            Box::new(Step4Tab::new(&mut step_group, &style, s.clone())),
+            Box::new(Step5Tab::new(&mut step_group, &style, s.clone())),
+            Box::new(Step6Tab::new(&mut step_group, &style, s.clone())),
+        ];
+        step_group.end();
 
         app_footer(&s, &mut main_flex, &style);
 
@@ -152,23 +148,49 @@ impl MyApp {
 
         s.send(Message::Step1(Step1Message::Enter));
 
-        let mut objs: Vec<Box<dyn Any>> = Vec::new();
-        objs.push(Box::new(Step1Tab::new(&mut tabs, &style, s.clone())));
-        objs.push(Box::new(Step2Tab::new(&mut tabs, &style, s.clone())));
-        objs.push(Box::new(Step3Tab::new(&mut tabs, &style, s.clone())));
-        objs.push(Box::new(Step4Tab::new(&mut tabs, &style, s.clone())));
-        objs.push(Box::new(Step5Tab::new(&mut tabs, &style, s.clone())));
-        objs.push(Box::new(Step6Tab::new(&mut tabs, &style, s.clone())));
-
-        MyApp {
+        let myapp = MyApp {
             app,
             r,
             s,
             step_idx: 0,
-            step_group: tabs,
+            step_group,
             navbar,
-            step_objs: objs, // main_panel: None,
-        }
+            step_objs,
+            style,
+        };
+
+        main_win.set_callback({
+            let s = myapp.s.clone();
+            move |_| {
+                let event = fltk::app::event();
+                if event == Event::Close {
+                    s.send(Message::Quit);
+                }
+            }
+        });
+
+        main_win.handle({
+            let mut x = 0;
+            let mut y = 0;
+            move |w, ev| {
+                // 按住鼠标移动窗口
+                match ev {
+                    Event::Push => {
+                        let (coord_x, coord_y) = fltk::app::event_coords();
+                        x = coord_x;
+                        y = coord_y;
+                        true
+                    }
+                    Event::Drag => {
+                        w.set_pos(fltk::app::event_x_root() - x, fltk::app::event_y_root() - y);
+                        true
+                    }
+                    _ => false,
+                }
+            }
+        });
+
+        myapp
     }
 
     fn set_step(&mut self, step_idx: usize) {
@@ -293,77 +315,35 @@ impl MyApp {
                 }
             }
         }
+        // self.app.run();
     }
 
     fn handle_quit(&self) {
         // let (vw, vh) = fltk::app::screen_size();
         let (x, y) = fltk::app::event_coords();
 
-        let x = fltk::app::event_x_root() - 100;
+        let x = fltk::app::event_x_root() - 150;
         let y = fltk::app::event_y_root() - 50;
+        // let d = show_dialog();
+        // // MyDialog::default();
 
-        MyDialog::default();
-    
-        // let choice = fltk::dialog::choice2(
-        //     x,
-        //     y,
-        //     "是否中断现在的安装？",
-        //     "继续安装(N)",
-        //     "中断安装离开(Y)",
-        //     "",
-        // );
-    
-        // if let Some(1) = choice {
-        //     self.app.quit();
-        // }
-    }
-    
-}
+        fltk::dialog::message_set_hotspot(false);
+        fltk::dialog::message_set_font(self.style.font_zh, 16);
+        fltk::dialog::message_icon_label("?");
+        fltk::dialog::message_title("请确认：");
 
-pub struct MyDialog {
-}
+        let choice = fltk::dialog::choice2(
+            x,
+            y,
+            "是否中断现在的安装？",
+            "中断安装离开",
+            "继续安装",
+            "",
+        );
 
-impl MyDialog {
-    pub fn default() -> Self {
-        use fltk::group;
-        let mut win = fltk::window::Window::default()
-            .with_size(400, 100)
-            .with_label("My Dialog");
-        win.set_color(fltk::enums::Color::from_rgb(240, 240, 240));
-        let mut pack = group::Pack::default()
-            .with_size(300, 30)
-            .center_of_parent()
-            .with_type(group::PackType::Horizontal);
-        pack.set_spacing(20);
-        fltk::frame::Frame::default()
-            .with_size(80, 0)
-            .with_label("Enter name:");
-        let mut inp = fltk::input::Input::default().with_size(100, 0);
-        inp.set_frame(fltk::enums::FrameType::FlatBox);
-        let mut ok = fltk::button::Button::default().with_size(80, 0).with_label("Ok");
-
-        // ok.set_color(fltk::enums::Color::Cyan);
-        // ok.set_frame(fltk::enums::FrameType::RFlatBox);
-        // ok.clear_visible_focus();
-
-        // style_button(&mut ok);
-        pack.end();
-        win.end();
-        win.make_modal(true);
-        win.show();
-        ok.set_callback({
-            println!("click");
-            let mut win = win.clone();
-            move |_| {
-                win.hide();
-            }
-        });
-        while win.shown() {
-            fltk::app::wait();
-            let event = fltk::app::event();
-            println!("dlg event: {:?}", event);
-            win.handle_event(event);
+        if let Some(0) = choice {
+            self.app.quit();
         }
-        Self {  }
     }
 }
+

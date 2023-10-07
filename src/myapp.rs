@@ -1,6 +1,5 @@
 use fltk::{
     app::{Receiver, Sender},
-    button::Button,
     enums::Event,
     frame::Frame,
     group::{Flex, Group},
@@ -32,7 +31,7 @@ pub struct MyApp {
     step_group: Group,
     step_objs: Vec<Box<dyn Any>>,
     // main_win: DoubleWindow,
-    style: AppStyle,
+    // style: AppStyle,
 }
 
 #[derive(Debug)]
@@ -69,7 +68,7 @@ fn app_title(parent: &mut Flex, style: &AppStyle) {
     panel.end();
 }
 
-fn app_footer(s: &Sender<Message>, parent: &mut Flex, style: &AppStyle) {
+fn app_footer(_s: &Sender<Message>, parent: &mut Flex, style: &AppStyle) {
     use fltk::enums::Align;
 
     let panel = Flex::default().row();
@@ -156,7 +155,7 @@ impl MyApp {
             step_group,
             navbar,
             step_objs,
-            style,
+            // style,
         };
 
         main_win.set_callback({
@@ -311,39 +310,10 @@ impl MyApp {
                     d.handle_message(msg);
                 }
                 Quit => {
-                    self.handle_quit();
+                    super::dialog::confirm_quit_dialog();
                 }
             }
         }
         // self.app.run();
     }
-
-    fn handle_quit(&self) {
-        // let (vw, vh) = fltk::app::screen_size();
-        let (x, y) = fltk::app::event_coords();
-
-        let x = fltk::app::event_x_root() - 150;
-        let y = fltk::app::event_y_root() - 50;
-        // let d = show_dialog();
-        // // MyDialog::default();
-
-        fltk::dialog::message_set_hotspot(false);
-        fltk::dialog::message_set_font(self.style.font_zh, 16);
-        fltk::dialog::message_icon_label("?");
-        fltk::dialog::message_title("请确认：");
-
-        let choice = fltk::dialog::choice2(
-            x,
-            y,
-            "是否中断现在的安装？",
-            "中断安装离开",
-            "继续安装",
-            "",
-        );
-
-        if let Some(0) = choice {
-            self.app.quit();
-        }
-    }
 }
-

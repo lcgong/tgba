@@ -115,7 +115,7 @@ pub async fn win_main() {
         let progressbar = progress.clone();
         let mut image_frame = image_frame.clone();
         let images = images.clone();
-        let computation = std::thread::spawn(move || {
+        std::thread::spawn(move || {
             for i in 1..101 {
                 use std::thread::sleep;
                 use std::time::Duration;

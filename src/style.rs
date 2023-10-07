@@ -7,6 +7,7 @@ pub struct AppStyle {
     pub font_bold_zh: Font,
     pub font_bold_en: Font,
     pub font_zh: Font,
+    pub font_en: Font,
     pub tgu_color: Color,
     pub darkgrey: Color,
 }
@@ -46,6 +47,7 @@ impl Default for AppStyle {
             font_bold_zh,
             font_bold_en,
             font_zh,
+            font_en,
             tgu_color,
             darkgrey,
         }

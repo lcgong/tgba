@@ -1,5 +1,4 @@
 use fltk::{
-    button::Button,
     frame::Frame,
     group::{Flex, Group},
     image::IcoImage,
@@ -14,6 +13,9 @@ use super::{
         step1::{Step1Message, Step1Tab},
         step2::{Step2Message, Step2Tab},
         step3::{Step3Message, Step3Tab},
+        step4::{Step4Message, Step4Tab},
+        step5::{Step5Message, Step5Tab},
+        step6::{Step6Message, Step6Tab},
     },
     style::AppStyle,
 };
@@ -36,6 +38,9 @@ pub enum Message {
     Step1(Step1Message),
     Step2(Step2Message),
     Step3(Step3Message),
+    Step4(Step4Message),
+    Step5(Step5Message),
+    Step6(Step6Message),
 }
 
 fn app_title(parent: &mut Flex, style: &AppStyle) {
@@ -111,30 +116,13 @@ impl MyApp {
 
         s.send(Message::Step1(Step1Message::Enter));
 
-        let step1 = Step1Tab::new(&mut tabs, &style, s.clone(), r.clone());
-        let step2 = Step2Tab::new(&mut tabs, &style, s.clone(), r.clone());
-        let step3 = Step3Tab::new(&mut tabs, &style, s.clone(), r.clone());
-
-        let mut flex = Flex::default().row();
-        flex.resize(tabs.x(), tabs.y(), tabs.w(), tabs.h());
-        let btn = Button::default().with_label("B1");
-        flex.fixed(&btn, 40);
-        let btn = Button::default().with_label("B2");
-        flex.fixed(&btn, 40);
-        tabs.add(&flex);
-
-        let mut flex = Flex::default().column();
-        flex.resize(tabs.x(), tabs.y(), tabs.w(), tabs.h());
-        let btn = Button::default().with_label("C1");
-        flex.fixed(&btn, 40);
-        let btn = Button::default().with_label("C2");
-        flex.fixed(&btn, 40);
-        tabs.add(&flex);
-
         let mut objs: Vec<Box<dyn Any>> = Vec::new();
-        objs.push(Box::new(step1));
-        objs.push(Box::new(step2));
-        objs.push(Box::new(step3));
+        objs.push(Box::new(Step1Tab::new(&mut tabs, &style, s.clone())));
+        objs.push(Box::new(Step2Tab::new(&mut tabs, &style, s.clone())));
+        objs.push(Box::new(Step3Tab::new(&mut tabs, &style, s.clone())));
+        objs.push(Box::new(Step4Tab::new(&mut tabs, &style, s.clone())));
+        objs.push(Box::new(Step5Tab::new(&mut tabs, &style, s.clone())));
+        objs.push(Box::new(Step6Tab::new(&mut tabs, &style, s.clone())));
 
         MyApp {
             app,
@@ -176,11 +164,13 @@ impl MyApp {
 
             use Message::*;
             match msg {
-                Step1(Step1Message::Enter) => {
+                Step1(msg @ Step1Message::Enter) => {
                     self.set_step(0);
-                    // let d = self.get_step_mut::<Step1Tab>();
+                    let d = self.get_step_mut::<Step1Tab>();
+                    d.handle_message(msg);
                 }
                 Step1(Step1Message::Done) => {
+                    println!("step1: done");
                     s.send(Step2(Step2Message::Enter));
                 }
                 Step1(msg) => {
@@ -191,10 +181,10 @@ impl MyApp {
                 Step2(msg @ Step2Message::Enter) => {
                     self.set_step(1);
                     let d = self.get_step_mut::<Step2Tab>();
-                    d.b();
                     d.handle_message(msg);
                 }
                 Step2(Step2Message::Done) => {
+                    println!("step2: done");
                     s.send(Step3(Step3Message::Enter));
                 }
                 Step2(msg) => {
@@ -210,10 +200,56 @@ impl MyApp {
                 }
                 Step3(Step3Message::Done) => {
                     println!("step3: done");
-                    s.send(Step1(Step1Message::Enter));
+                    s.send(Step4(Step4Message::Enter));
                 }
                 Step3(msg) => {
                     let d = self.get_step_mut::<Step3Tab>();
+                    d.handle_message(msg);
+                }
+
+                //
+                Step4(msg @ Step4Message::Enter) => {
+                    self.set_step(3);
+                    let d = self.get_step_mut::<Step4Tab>();
+                    d.c();
+                    d.handle_message(msg);
+                }
+                Step4(Step4Message::Done) => {
+                    println!("step4: done");
+                    s.send(Step5(Step5Message::Enter));
+                }
+                Step4(msg) => {
+                    let d = self.get_step_mut::<Step4Tab>();
+                    d.handle_message(msg);
+                }
+                //
+                Step5(msg @ Step5Message::Enter) => {
+                    self.set_step(4);
+                    let d = self.get_step_mut::<Step5Tab>();
+                    d.c();
+                    d.handle_message(msg);
+                }
+                Step5(Step5Message::Done) => {
+                    println!("step5: done");
+                    s.send(Step6(Step6Message::Enter));
+                }
+                Step5(msg) => {
+                    let d = self.get_step_mut::<Step5Tab>();
+                    d.handle_message(msg);
+                }
+                //
+                Step6(msg @ Step6Message::Enter) => {
+                    self.set_step(5);
+                    let d = self.get_step_mut::<Step6Tab>();
+                    d.c();
+                    d.handle_message(msg);
+                }
+                Step6(Step6Message::Done) => {
+                    println!("step6: done");
+                    // s.send(Step6(Step6Message::Enter));
+                }
+                Step6(msg) => {
+                    let d = self.get_step_mut::<Step6Tab>();
                     d.handle_message(msg);
                 }
             }

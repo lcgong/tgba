@@ -11,19 +11,19 @@ use fltk::{
 use super::super::{myapp::Message, style::AppStyle};
 
 #[derive(Debug)]
-pub enum Step3Message {
+pub enum Step6Message {
     Enter,
     Update,
     Done,
 }
 
-pub struct Step3Tab {
+pub struct Step6Tab {
     c_no: usize,
     panel: Flex,
     sender: Sender<Message>,
 }
 
-impl Step3Tab {
+impl Step6Tab {
     pub fn new(
         group: &mut Group,
         style: &AppStyle,
@@ -51,7 +51,7 @@ impl Step3Tab {
 
         panel.end();
 
-        Step3Tab {
+        Step6Tab {
             c_no: 2,
             panel,
             sender,
@@ -66,22 +66,22 @@ impl Step3Tab {
         println!("c");
     }
 
-    pub fn handle_message(&mut self, msg: Step3Message) {
+    pub fn handle_message(&mut self, msg: Step6Message) {
         println!("handle: {}", self.c_no);
 
         match msg {
-            Step3Message::Enter => {
+            Step6Message::Enter => {
                 let s = self.sender.clone();
                 tokio::spawn(async move {
                     use std::time::Duration;
                     tokio::time::sleep(Duration::from_millis(2000)).await;
-                    s.send(Message::Step3(Step3Message::Done));
+                    s.send(Message::Step6(Step6Message::Done));
                 });
             }
-            Step3Message::Update => {
+            Step6Message::Update => {
                 //
             }
-            Step3Message::Done => {
+            Step6Message::Done => {
                 //
             }
         }

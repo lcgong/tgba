@@ -1,7 +1,7 @@
 use fltk::{
-    app::{Receiver, Sender},
-    button::Button,
-    enums::Align,
+    app::Sender,
+    // button::Button,
+    // enums::Align,
     frame::Frame,
     group::{Flex, Group},
     misc::Progress,
@@ -21,7 +21,6 @@ pub struct Step2Tab {
     b_no: usize,
     panel: Flex,
     sender: Sender<Message>,
-    receiver: Receiver<Message>,
 }
 
 impl Step2Tab {
@@ -29,7 +28,6 @@ impl Step2Tab {
         group: &mut Group,
         style: &AppStyle,
         sender: Sender<Message>,
-        receiver: Receiver<Message>,
     ) -> Self {
         let mut panel = Flex::default_fill().column();
 
@@ -58,7 +56,6 @@ impl Step2Tab {
             b_no: 1,
             panel,
             sender,
-            receiver,
         }
     }
 

@@ -2,7 +2,7 @@ use std::ffi::OsString;
 use std::{collections::HashMap, path::PathBuf};
 
 use fltk::{
-    app::{Receiver, Sender},
+    app::Sender,
     button::Button,
     dialog::{FileDialog, FileDialogOptions, FileDialogType},
     enums::Align,
@@ -26,10 +26,8 @@ pub struct Step1Tab {
     a_no: usize,
     panel: Flex,
     target_dir_input: Input,
-    // hints_label: Frame,
     start_btn: Button,
     sender: Sender<Message>,
-    // receiver: Receiver<Message>,
 }
 
 impl Step1Tab {
@@ -39,7 +37,6 @@ impl Step1Tab {
         group: &mut Group,
         style: &AppStyle,
         sender: Sender<Message>,
-        receiver: Receiver<Message>,
     ) -> Self {
         let mut panel = Flex::default_fill().column();
 

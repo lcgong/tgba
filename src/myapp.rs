@@ -55,7 +55,7 @@ fn app_title(parent: &mut Flex, style: &AppStyle) {
         .with_label("TianGong Business Analytics (TGBA) Lab Installer")
         .with_align(Align::Inside | Align::Left);
     title_en.set_label_font(style.font_bold_en);
-    title_en.set_label_size(18);
+    title_en.set_label_size(16);
     title_en.set_label_color(style.darkgrey);
 
     panel.end();
@@ -159,7 +159,6 @@ impl MyApp {
                 self.tabs.child(idx).unwrap().show();
             }
         }
-
     }
 
     #[inline]
@@ -179,9 +178,7 @@ impl MyApp {
             match msg {
                 Step1(Step1Message::Enter) => {
                     self.set_step(0);
-
-                    let d = self.get_step_mut::<Step1Tab>();
-                    d.a();
+                    // let d = self.get_step_mut::<Step1Tab>();
                 }
                 Step1(Step1Message::Done) => {
                     s.send(Step2(Step2Message::Enter));
@@ -196,7 +193,6 @@ impl MyApp {
                     let d = self.get_step_mut::<Step2Tab>();
                     d.b();
                     d.handle_message(msg);
-
                 }
                 Step2(Step2Message::Done) => {
                     s.send(Step3(Step3Message::Enter));

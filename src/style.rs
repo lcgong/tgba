@@ -18,6 +18,7 @@ impl Default for AppStyle {
         //     println!("font: {}", f);
         // }
         let font_bold_en = { Font::by_index(font_index("BArial").unwrap()) };
+        let font_en = { Font::by_index(font_index(" Arial").unwrap()) };
         let font_bold_zh = {
             if let Some(idx) = font_index("B微软雅黑") {
                 Font::by_index(idx)
@@ -29,9 +30,9 @@ impl Default for AppStyle {
         };
 
         let font_zh = {
-            if let Some(idx) = font_index("B微软雅黑") {
+            if let Some(idx) = font_index(" 微软雅黑") { 
                 Font::by_index(idx)
-            } else if let Some(idx) = font_index("B黑体") {
+            } else if let Some(idx) = font_index(" 黑体") {
                 Font::by_index(idx)
             } else {
                 panic!("未找到系统中文字体")

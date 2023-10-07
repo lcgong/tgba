@@ -31,6 +31,7 @@ tempfile = "3.8.0"
 mslnk = "0.1.8"
 toml = "0.8.2"
 serde_derive = "1.0.188"
+sysinfo = "0.29.10"
 
 [profile.release]
 strip = true

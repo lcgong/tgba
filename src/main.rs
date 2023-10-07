@@ -7,7 +7,6 @@ pub mod resources;
 // pub mod step;
 pub mod demo;
 pub mod myapp;
-pub mod navbar;
 pub mod pyenv;
 pub mod style;
 

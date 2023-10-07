@@ -39,10 +39,13 @@ impl Step2Tab {
         Frame::default();
 
         let mut progress = Progress::default();
+        progress.set_color(fltk::enums::Color::from_rgb(200, 200, 200));
+        progress.set_frame(fltk::enums::FrameType::FlatBox);
+
         progress.set_minimum(0.0);
         progress.set_maximum(100.0);
         progress.set_selection_color(style.tgu_color);
-        panel.fixed(&progress, 10);
+        panel.fixed(&progress, 5);
 
         let frame = Frame::default();
         panel.fixed(&frame, 30);

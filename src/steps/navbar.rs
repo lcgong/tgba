@@ -5,7 +5,7 @@ use fltk::{
     prelude::{GroupExt, WidgetExt},
 };
 
-use super::style::AppStyle;
+use super::super::style::AppStyle;
 
 pub struct PhaseNavBar {
     labels: Vec<Frame>,

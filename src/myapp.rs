@@ -1,4 +1,6 @@
 use fltk::{
+    app::{Receiver, Sender},
+    button::Button,
     frame::Frame,
     group::{Flex, Group},
     image::IcoImage,
@@ -8,8 +10,8 @@ use fltk::{
 use std::any::Any;
 
 use super::{
-    navbar::PhaseNavBar,
     steps::{
+        navbar::PhaseNavBar,
         step1::{Step1Message, Step1Tab},
         step2::{Step2Message, Step2Tab},
         step3::{Step3Message, Step3Tab},
@@ -19,18 +21,15 @@ use super::{
     },
     style::AppStyle,
 };
-//
 
 pub struct MyApp {
     app: fltk::app::App,
-    r: fltk::app::Receiver<Message>,
-    s: fltk::app::Sender<Message>,
-    // container: Flex,
+    r: Receiver<Message>,
+    s: Sender<Message>,
     navbar: PhaseNavBar,
-    // main_panel: Option<InstallerPanel>,
     step_idx: usize,
-    tabs: Group,
-    objs: Vec<Box<dyn Any>>,
+    step_group: Group,
+    step_objs: Vec<Box<dyn Any>>,
 }
 
 #[derive(Debug)]
@@ -41,6 +40,7 @@ pub enum Message {
     Step4(Step4Message),
     Step5(Step5Message),
     Step6(Step6Message),
+    Quit,
 }
 
 fn app_title(parent: &mut Flex, style: &AppStyle) {
@@ -50,14 +50,14 @@ fn app_title(parent: &mut Flex, style: &AppStyle) {
     parent.fixed(&panel, 42);
 
     let mut title_zh = Frame::default()
-        .with_label("天工业务数据分析(TGBA)实验环境自助安装")
+        .with_label("天工业务数据分析(TGBA)实验环境 - 自助安装")
         .with_align(Align::Inside | Align::Left);
     title_zh.set_label_font(style.font_bold_zh);
     title_zh.set_label_size(22);
     title_zh.set_label_color(style.tgu_color);
 
     let mut title_en = Frame::default()
-        .with_label("TianGong Business Analytics (TGBA) Lab Installer")
+        .with_label("TianGong Business Analytics (TGBA) Lab - Installer")
         .with_align(Align::Inside | Align::Left);
     title_en.set_label_font(style.font_bold_en);
     title_en.set_label_size(16);
@@ -66,8 +66,22 @@ fn app_title(parent: &mut Flex, style: &AppStyle) {
     panel.end();
 }
 
-fn app_footer(parent: &mut Flex, style: &AppStyle) {
+fn app_footer(s: &Sender<Message>, parent: &mut Flex, style: &AppStyle) {
     use fltk::enums::Align;
+
+    let mut panel = Flex::default().row();
+    parent.fixed(&panel, 24);
+
+    let mut btn = Button::default().with_label("退出");
+    panel.fixed(&btn, 40);
+    btn.set_callback({
+        let s = s.clone();
+        move |_| {
+            s.send(Message::Quit);
+        }
+    });
+
+    // Frame::default();
 
     let mut footer = Frame::default()
         .with_label("天津工业大学经济与管理学院 © 2023")
@@ -77,13 +91,16 @@ fn app_footer(parent: &mut Flex, style: &AppStyle) {
     footer.set_label_size(12);
     footer.set_label_color(style.darkgrey);
 
-    parent.fixed(&footer, 18);
+    panel.end()
+
+    // parent.fixed(&footer, 18);
 }
 
 impl MyApp {
     pub fn new() -> Self {
         let app = fltk::app::App::default().with_scheme(fltk::app::Scheme::Gtk);
         fltk::app::background(255, 255, 255);
+
         app.load_system_fonts();
         let style = AppStyle::default();
 
@@ -96,7 +113,26 @@ impl MyApp {
             .center_screen()
             .with_label("TGBA安装程序");
         main_win.set_icon(Some(icon));
-        // main_win.make_resizable(true);
+
+        // main_win.set_border(false);
+        main_win.handle({
+            // 按住鼠标移动窗口
+            let mut x = 0;
+            let mut y = 0;
+            move |w, ev| match ev {
+                fltk::enums::Event::Push => {
+                    let coords = fltk::app::event_coords();
+                    x = coords.0;
+                    y = coords.1;
+                    true
+                }
+                fltk::enums::Event::Drag => {
+                    w.set_pos(fltk::app::event_x_root() - x, fltk::app::event_y_root() - y);
+                    true
+                }
+                _ => false,
+            }
+        });
 
         let mut main_flex = Flex::default_fill().column();
         main_flex.set_margins(10, 10, 10, 10);
@@ -109,7 +145,7 @@ impl MyApp {
         let mut tabs = Group::default_fill();
         tabs.end();
 
-        app_footer(&mut main_flex, &style);
+        app_footer(&s, &mut main_flex, &style);
 
         main_win.end();
         main_win.show();
@@ -129,9 +165,9 @@ impl MyApp {
             r,
             s,
             step_idx: 0,
-            tabs,
+            step_group: tabs,
             navbar,
-            objs, // main_panel: None,
+            step_objs: objs, // main_panel: None,
         }
     }
 
@@ -140,18 +176,18 @@ impl MyApp {
         self.navbar.set_activate(step_idx as i32);
 
         let step_idx = step_idx as i32;
-        for idx in 0..self.tabs.children() {
+        for idx in 0..self.step_group.children() {
             if idx != step_idx {
-                self.tabs.child(idx).unwrap().hide();
+                self.step_group.child(idx).unwrap().hide();
             } else {
-                self.tabs.child(idx).unwrap().show();
+                self.step_group.child(idx).unwrap().show();
             }
         }
     }
 
     #[inline]
     fn get_step_mut<T: Any>(&mut self) -> &mut T {
-        self.objs[self.step_idx].downcast_mut::<T>().unwrap()
+        self.step_objs[self.step_idx].downcast_mut::<T>().unwrap()
     }
 
     pub fn run(&mut self) {
@@ -252,15 +288,82 @@ impl MyApp {
                     let d = self.get_step_mut::<Step6Tab>();
                     d.handle_message(msg);
                 }
+                Quit => {
+                    self.handle_quit();
+                }
             }
         }
     }
 
-    pub fn choose_target_dir_panel(&mut self) {}
+    fn handle_quit(&self) {
+        // let (vw, vh) = fltk::app::screen_size();
+        let (x, y) = fltk::app::event_coords();
+
+        let x = fltk::app::event_x_root() - 100;
+        let y = fltk::app::event_y_root() - 50;
+
+        MyDialog::default();
+    
+        // let choice = fltk::dialog::choice2(
+        //     x,
+        //     y,
+        //     "是否中断现在的安装？",
+        //     "继续安装(N)",
+        //     "中断安装离开(Y)",
+        //     "",
+        // );
+    
+        // if let Some(1) = choice {
+        //     self.app.quit();
+        // }
+    }
+    
 }
 
-impl Default for MyApp {
-    fn default() -> Self {
-        Self::new()
+pub struct MyDialog {
+}
+
+impl MyDialog {
+    pub fn default() -> Self {
+        use fltk::group;
+        let mut win = fltk::window::Window::default()
+            .with_size(400, 100)
+            .with_label("My Dialog");
+        win.set_color(fltk::enums::Color::from_rgb(240, 240, 240));
+        let mut pack = group::Pack::default()
+            .with_size(300, 30)
+            .center_of_parent()
+            .with_type(group::PackType::Horizontal);
+        pack.set_spacing(20);
+        fltk::frame::Frame::default()
+            .with_size(80, 0)
+            .with_label("Enter name:");
+        let mut inp = fltk::input::Input::default().with_size(100, 0);
+        inp.set_frame(fltk::enums::FrameType::FlatBox);
+        let mut ok = fltk::button::Button::default().with_size(80, 0).with_label("Ok");
+
+        // ok.set_color(fltk::enums::Color::Cyan);
+        // ok.set_frame(fltk::enums::FrameType::RFlatBox);
+        // ok.clear_visible_focus();
+
+        // style_button(&mut ok);
+        pack.end();
+        win.end();
+        win.make_modal(true);
+        win.show();
+        ok.set_callback({
+            println!("click");
+            let mut win = win.clone();
+            move |_| {
+                win.hide();
+            }
+        });
+        while win.shown() {
+            fltk::app::wait();
+            let event = fltk::app::event();
+            println!("dlg event: {:?}", event);
+            win.handle_event(event);
+        }
+        Self {  }
     }
 }

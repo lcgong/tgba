@@ -5,7 +5,7 @@ use fltk::{
     app::Sender,
     button::Button,
     dialog::{FileDialog, FileDialogOptions, FileDialogType},
-    enums::Align,
+    enums::{Align, Color},
     frame::Frame,
     group::{Flex, Group},
     prelude::{GroupExt, InputExt, WidgetBase, WidgetExt},
@@ -19,7 +19,7 @@ use fltk::input::Input;
 pub enum Step1Message {
     Enter,
     Modified,
-    Done,
+    Done { target_dir: String },
 }
 
 pub struct Step1Tab {
@@ -33,11 +33,7 @@ pub struct Step1Tab {
 impl Step1Tab {
     const DEFAUL_TARGET_DIR: &str = r#"C:\tgba"#;
 
-    pub fn new(
-        group: &mut Group,
-        style: &AppStyle,
-        sender: Sender<Message>,
-    ) -> Self {
+    pub fn new(group: &mut Group, style: &AppStyle, sender: Sender<Message>) -> Self {
         let mut panel = Flex::default_fill().column();
 
         panel.resize(group.x(), group.y(), group.w(), group.h());
@@ -129,10 +125,13 @@ impl Step1Tab {
             let disk_freespace = create_available_space_map();
             let mut input = obj.target_dir_input.clone();
             let mut hints_label = hints_label.clone();
+            let mut start_btn = obj.start_btn.clone();
 
-            let path = PathBuf::from(input.value());
-            let hints = check_availabel_space(&disk_freespace, &path);
-            hints_label.set_label(&hints);
+            if !check_availabel_space(&mut hints_label, &input.value(), &disk_freespace) {
+                start_btn.deactivate();
+            } else {
+                start_btn.activate();
+            }
 
             choose_btn.set_callback(move |_| {
                 use FileDialogType::BrowseSaveDir;
@@ -145,17 +144,24 @@ impl Step1Tab {
                 dlg.show();
 
                 if !dlg.filename().as_os_str().is_empty() {
-                    let hints = check_availabel_space(&disk_freespace, &dlg.filename());
-                    hints_label.set_label(&hints);
                     input.set_value(dlg.filename().to_string_lossy().as_ref());
+                    if !check_availabel_space(&mut hints_label, &input.value(), &disk_freespace) {
+                        start_btn.deactivate();
+                    } else {
+                        start_btn.activate();
+                    }
                 }
             });
         }
 
         let s = obj.sender.clone();
-        obj.start_btn.set_callback(move |_| {
-            //
-            s.send(Message::Step1(Step1Message::Done))
+        obj.start_btn.set_callback({
+            let input = obj.target_dir_input.clone();
+            move |_| {
+                s.send(Message::Step1(Step1Message::Done {
+                    target_dir: input.value().to_string(),
+                }))
+            }
         });
 
         obj
@@ -170,19 +176,44 @@ impl Step1Tab {
     }
 }
 
-fn check_availabel_space(map: &HashMap<OsString, f32>, path: &PathBuf) -> String {
+fn check_availabel_space(
+    hints_label: &mut Frame,
+    path: &str,
+    map: &HashMap<OsString, f32>,
+) -> bool {
+    let path = PathBuf::from(path);
+    // let hints = check_availabel_space(&disk_freespace, &path);
+
     use std::path::Component::Prefix;
 
-    static EXPECTED_SIZE: &str = r#"安装所需空间约 3 GiB 内"#;
+    let expected_space = 2.5f32;
 
     if let Some(Prefix(prefix)) = path.components().next() {
         let driver = prefix.as_os_str().to_os_string();
         if let Some(freespace) = map.get(&driver) {
-            return format!("{}，剩余空间 {:.1} GiB", EXPECTED_SIZE, freespace);
+            if expected_space < *freespace {
+                hints_label.set_label(&format!(
+                    "安装所需空间约 {} GiB 内，剩余空间 {:.1} GiB",
+                    expected_space, freespace
+                ));
+                hints_label.set_label_color(Color::from_rgb(5, 100, 5));
+
+                return true;
+            } else {
+                hints_label.set_label(&format!(
+                    "存储空间不足，安装所需空间约 {} GiB 内，剩余空间 {:.1} GiB",
+                    expected_space, freespace
+                ));
+                hints_label.set_label_color(Color::from_rgb(200, 0, 0));
+
+                return false;
+            }
         }
     }
 
-    EXPECTED_SIZE.to_string()
+    hints_label.set_label(&format!("安装所需空间约 {} GiB 内", expected_space));
+    hints_label.set_label_color(Color::from_rgb(150, 150, 150));
+    return true;
 }
 
 fn create_available_space_map() -> HashMap<OsString, f32> {

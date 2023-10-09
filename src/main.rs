@@ -2,31 +2,18 @@
 // 在debug模式下终端显示print，发行版不显示终端窗口
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-// mod heading;
-pub mod resources;
-// pub mod step;
-pub mod demo;
+pub mod dialog;
 pub mod myapp;
 pub mod pyenv;
-pub mod style;
-pub mod dialog;
+pub mod resources;
 pub mod status;
 pub mod steps;
+pub mod style;
 
-// use winapp::main_app;
-
-// fn main() {
-
-//     pypip::pyutils::main();
-
-// }
 use anyhow::Result;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // use demo::win_main;
-    // win_main().await;
-
     let mut app = myapp::MyApp::new();
     app.run();
 

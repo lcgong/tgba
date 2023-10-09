@@ -10,7 +10,7 @@ pub mod myapp;
 pub mod pyenv;
 pub mod style;
 pub mod dialog;
-
+pub mod status;
 pub mod steps;
 
 // use winapp::main_app;
@@ -45,3 +45,20 @@ async fn main() -> Result<()> {
 
     Ok(())
 }
+
+// pub async fn cmd_main() -> Result<()> {
+//     use pyenv::Installer;
+//     let target_dir = std::env::current_dir()?;
+
+//     use pyenv::{create_winlnk, fix_patches};
+//     use pyenv::{ensure_python_venv, install_requirements};
+
+//     let mut installer = Installer::new(target_dir)?;
+
+//     ensure_python_venv(&mut installer).await?;
+//     install_requirements(&installer).await?;
+//     create_winlnk(&installer, &installer.target_dir())?;
+//     fix_patches(&installer)?;
+
+//     Ok(())
+// }

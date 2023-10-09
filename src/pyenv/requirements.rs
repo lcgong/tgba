@@ -2,9 +2,13 @@ use anyhow::{bail, Result};
 use pep508_rs::Requirement;
 use std::{fs::File, path::PathBuf};
 
+use super::super::status::StatusUpdate;
 use super::installer::Installer;
 
-pub async fn install_requirements(installer: &Installer) -> Result<()> {
+pub async fn install_requirements(
+    installer: &Installer,
+    status_updater: &impl StatusUpdate,
+) -> Result<()> {
     let cached_packages_dir = &installer.cached_packages_dir;
     if let Err(_err) = std::fs::create_dir_all(cached_packages_dir) {
         bail!(
@@ -26,7 +30,7 @@ pub async fn install_requirements(installer: &Installer) -> Result<()> {
         let mut success = false;
 
         for pypi in pypi_mirrors {
-            match download_requirement(installer, &pypi, requirement).await {
+            match download_requirement(installer, status_updater, &pypi, requirement).await {
                 Ok(_) => {
                     success = true;
                     break;
@@ -83,7 +87,6 @@ fn offline_install_requirements(
     Ok(())
 }
 
-
 async fn get_requirements_path(installer: &Installer) -> Result<PathBuf> {
     let filename = format!(
         "requirements-{}-{}.txt",
@@ -94,19 +97,17 @@ async fn get_requirements_path(installer: &Installer) -> Result<PathBuf> {
     use crate::resources::EmbededRequirements;
     let embed_file: rust_embed::EmbeddedFile = EmbededRequirements::get(filename.as_str()).unwrap();
 
-
     let requirements_path = installer.tgba_dir().join(&filename);
 
     let mut file = File::create(&requirements_path)?;
 
     use std::io::Write;
-    file.write_all(embed_file.data.as_ref())?;    
+    file.write_all(embed_file.data.as_ref())?;
 
     Ok(requirements_path)
 }
 
 async fn extract_requirements(requirements_path: &PathBuf) -> Result<Vec<Requirement>> {
-
     let file = File::open(requirements_path).unwrap();
 
     use std::io::{BufRead, BufReader};

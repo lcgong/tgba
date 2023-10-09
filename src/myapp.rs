@@ -118,8 +118,18 @@ impl MyApp {
             .with_label("TGBA安装程序");
 
         main_win.begin();
-        let icon = IcoImage::load(&"resources/tgba-jupyterlab-48x48.ico").unwrap();
-        main_win.set_icon(Some(icon));
+
+        use super::resources::EmbededResources;
+        if let Some(file) = EmbededResources::get("tgba-jupyterlab-48x48.ico") {
+            match IcoImage::from_data(&file.data) {
+                Ok(icon) => main_win.set_icon(Some(icon)),
+                Err(err) => {
+                    fltk::dialog::alert_default(&format!("{err}"));
+                }
+            };
+        } else {
+            println!("no found ico resource");
+        };
 
         let mut main_flex = Flex::default_fill().column();
         main_flex.set_margins(10, 10, 10, 10);
@@ -145,7 +155,7 @@ impl MyApp {
         main_win.end();
         main_win.show();
 
-        s.send(Message::Step1(Step1Message::Enter));
+        
 
         let myapp = MyApp {
             app,
@@ -189,6 +199,9 @@ impl MyApp {
             }
         });
 
+        // myapp.s.send(Message::Step1(Step1Message::Enter));
+        myapp.s.send(Message::Step2(Step2Message::Enter {target_dir : "D:\\2".to_string()}));
+
         myapp
     }
 
@@ -226,19 +239,20 @@ impl MyApp {
                     let d = self.get_step_mut::<Step1Tab>();
                     d.handle_message(msg);
                 }
-                Step1(Step1Message::Done) => {
-                    println!("step1: done");
-                    s.send(Step2(Step2Message::Enter));
+                Step1(Step1Message::Done { target_dir }) => {
+                    println!("step1: done: {:?}", target_dir);
+                    s.send(Step2(Step2Message::Enter { target_dir }));
                 }
                 Step1(msg) => {
                     let d = self.get_step_mut::<Step1Tab>();
                     d.handle_message(msg);
                 }
                 //
-                Step2(msg @ Step2Message::Enter) => {
+                Step2(Step2Message::Enter { target_dir }) => {
                     self.set_step(1);
-                    let d = self.get_step_mut::<Step2Tab>();
-                    d.handle_message(msg);
+                    let step_tab = self.get_step_mut::<Step2Tab>();
+                    step_tab.start(&target_dir);
+                    // s.send(Step2(Step2Message::Start));
                 }
                 Step2(Step2Message::Done) => {
                     println!("step2: done");

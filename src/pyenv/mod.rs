@@ -8,8 +8,9 @@ mod requirements;
 mod scriptfixs;
 mod utils;
 mod fonts;
-mod venv;
 mod winlnk;
+
+pub mod venv;
 
 pub use installer::Installer;
 pub use link::PackageLink;

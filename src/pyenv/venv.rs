@@ -7,10 +7,15 @@ use super::download::download;
 use super::utils::make_python_bin_path;
 use super::Installer;
 
-pub async fn ensure_python_venv(installer: &mut Installer) -> Result<()> {
-    ensure_python_dist(installer).await?;
+use super::super::status::StatusUpdate;
 
-    ensure_venv(installer).await?;
+pub async fn ensure_python_venv(
+    installer: &mut Installer,
+    status_update: &impl StatusUpdate,
+) -> Result<()> {
+    ensure_python_dist(installer, status_update).await?;
+
+    ensure_venv(installer, status_update).await?;
 
     set_platform_info(installer)?;
 
@@ -68,14 +73,17 @@ pub fn set_platform_info(installer: &mut Installer) -> Result<()> {
     Ok(())
 }
 
-pub async fn ensure_python_dist(installer: &Installer) -> Result<()> {
+pub async fn ensure_python_dist(
+    installer: &Installer,
+    status_updater: &impl StatusUpdate,
+) -> Result<()> {
     let pydist_dir = &installer.pydist_dir;
     let python_bin = make_python_bin_path(pydist_dir);
 
     let pyver = installer.python_version_full.as_str();
 
     if pydist_dir.is_dir() && python_bin.is_file() {
-        installer.log(format!("自带CPython-{}已安装", pyver).as_str());
+        status_updater.message(format!("自带CPython-{}已安装", pyver).as_str());
         return Ok(());
     }
 
@@ -93,8 +101,11 @@ pub async fn ensure_python_dist(installer: &Installer) -> Result<()> {
         bail!("地址文件解析扩展名错误: {}", cpython_source.url())
     };
 
+    status_updater.message(&format!("下载CPython-{pyver}安装包", ));
+
     let buffer = download(
         installer,
+        status_updater,
         cpython_source.url(),
         &format!("下载CPython-{}安装包", pyver),
     )
@@ -104,26 +115,26 @@ pub async fn ensure_python_dist(installer: &Installer) -> Result<()> {
         bail!("hash check of {} failed", cpython_source.url())
     }
 
-    installer.log(format!("解压CPython-{}安装包", pyver).as_str());
+    status_updater.message(format!("解压CPython-{}安装包", pyver).as_str());
     unpack_archive(file_ext, &buffer, pydist_dir)?;
 
-    installer.log(format!("CPython-{}安装完成", installer.python_version_full).as_str());
+    status_updater.message(format!("CPython-{}安装完成", installer.python_version_full).as_str());
 
     Ok(())
 }
 
-pub async fn ensure_venv(installer: &Installer) -> Result<()> {
+pub async fn ensure_venv(installer: &Installer, status_updater: &impl StatusUpdate) -> Result<()> {
     let venv_dir = &installer.venv_dir;
     let python_bin = make_python_bin_path(&installer.pydist_dir);
 
     let flag_done = venv_dir.join(".TGBA_VENV_DONE");
 
     if venv_dir.is_dir() && flag_done.is_file() {
-        installer.log("虚拟环境已经创建，跳过该任务");
+        status_updater.message("虚拟环境已经创建，跳过该任务");
         return Ok(());
     }
 
-    installer.log("创建Python虚拟环境");
+    status_updater.message("创建Python虚拟环境");
 
     // initialize the virtualenv
     let mut venv_cmd = Command::new(&python_bin);
@@ -147,7 +158,7 @@ pub async fn ensure_venv(installer: &Installer) -> Result<()> {
     };
     drop(flag_done);
 
-    installer.log("完成创建Python虚拟环境");
+    status_updater.message("完成创建Python虚拟环境");
 
     Ok(())
 }

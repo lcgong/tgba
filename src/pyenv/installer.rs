@@ -7,6 +7,7 @@ use super::utils::parse_version;
 
 use super::config::{CPythonDistSource, Config, PyPIMirror};
 
+#[derive(Clone)]
 pub struct Installer {
     target_dir: PathBuf,
     tgba_dir: PathBuf,

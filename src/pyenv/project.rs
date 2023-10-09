@@ -12,6 +12,7 @@ use crate::pyenv::checksum;
 use crate::pyenv::utils::canonicalize_name;
 
 use super::config::PyPIMirror;
+use super::super::status::StatusUpdate;
 
 pub struct ProjectIndex {
     pypi: PyPIMirror,
@@ -49,6 +50,7 @@ impl ProjectIndex {
 
 pub async fn download_requirement(
     installer: &Installer,
+    status_updater: &impl StatusUpdate,
     pypi: &PyPIMirror,
     requirement: &Requirement,
 ) -> Result<()> {
@@ -90,19 +92,21 @@ pub async fn download_requirement(
         return Ok(());
     }
 
-    download_link(installer, pypi, link, cached_filename).await?;
+    download_link(installer, status_updater, pypi, link, cached_filename).await?;
 
     Ok(())
 }
 
 async fn download_link(
     installer: &Installer,
+    status_updater: &impl StatusUpdate,
     pypi: &PyPIMirror,
     link: &PackageLink,
     cached_filename: &PathBuf,
 ) -> Result<()> {
     let buffer = download(
         installer,
+        status_updater,
         link.url(),
         &format!("从{}下载{}", pypi.name(), link.file_name()),
     )

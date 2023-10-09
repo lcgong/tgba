@@ -108,14 +108,15 @@ pub struct LoadingSpinner {
     // icon_empty: SvgImage,
     icon_success: SvgImage,
     icon_error: SvgImage,
-    loading_frames: Vec<SvgImage>,
+    icon_frames: Arc<Vec<SvgImage>>,
     frame: Frame,
     running: Arc<Mutex<bool>>,
-    frame_idx: Arc<Mutex<u8>>,
-    handle: Option<std::thread::JoinHandle<()>>,
+    // frame_idx: Arc<Mutex<u8>>,
+    timeout_handle: Option<fltk::app::TimeoutHandle>,
 }
 
 impl LoadingSpinner {
+    const TIMEOUT_SECONDS: f64 = 0.1;
     pub fn new(width: i32) -> Self {
         let (width, height) = (width, width);
         let (icon_empty, loading_frames) = create_loading_images(width, height);
@@ -130,11 +131,11 @@ impl LoadingSpinner {
             // icon_empty,
             icon_success,
             icon_error,
-            loading_frames,
+            icon_frames: Arc::new(loading_frames),
             frame,
             running: Arc::new(Mutex::new(false)),
-            frame_idx: Arc::new(Mutex::new(0)),
-            handle: None,
+            // frame_idx: Arc::new(Mutex::new(0)),
+            timeout_handle: None,
         }
     }
 
@@ -143,41 +144,38 @@ impl LoadingSpinner {
     }
 
     pub fn start(&mut self) {
-        let frame_images = self.loading_frames.clone();
         let frame = self.frame.clone();
+        let frame_images = self.icon_frames.clone();
+
+        *self.running.lock().unwrap() = true;
+
         let running = Arc::clone(&self.running);
-        let frame_idx = Arc::clone(&self.frame_idx);
-        let handle = std::thread::spawn(move || {
-            *running.lock().unwrap() = true;
-            while *running.lock().unwrap() {
-                let frame_idx = {
-                    let mut frame_idx = frame_idx.lock().unwrap();
-                    let idx = *frame_idx;
-                    *frame_idx = (idx + 1) % 8;
-                    idx
-                };
+        let frame_idx = Arc::new(Mutex::new(0));
 
-                fltk::app::awake_callback({
-                    let mut frame = frame.clone();
-                    let image = frame_images[frame_idx as usize].clone();
-                    move || {
-                        frame.set_image(Some(image.clone()));
-                        frame.redraw();
-                    }
-                });
-
-                std::thread::sleep(Duration::from_millis(100));
-            }
+        let handle = fltk::app::add_timeout3(Self::TIMEOUT_SECONDS, move |handle| {
+            draw_frame(
+                frame.clone(),
+                running.clone(),
+                frame_images.clone(),
+                frame_idx.clone(),
+                handle,
+            );
         });
 
-        self.handle = Some(handle);
+        self.timeout_handle = Some(handle);
+
+        // println!("loading spinner - started");
     }
 
     fn stop(&mut self) {
-        if let Some(handle) = self.handle.take() {
-            *self.running.lock().unwrap() = false;
-            handle.join().unwrap();
+        // println!("loading spinner - stopping");
+        *self.running.lock().unwrap() = false;
+        if let Some(handle) = self.timeout_handle {
+            if fltk::app::has_timeout3(handle) {
+                fltk::app::remove_timeout3(handle);
+            }
         }
+        // println!("loading spinner - stopped")
     }
 
     pub fn success(&mut self) {
@@ -191,6 +189,31 @@ impl LoadingSpinner {
         self.frame.set_image(Some(self.icon_error.clone()));
         self.frame.redraw();
     }
+}
+
+fn draw_frame(
+    mut frame: Frame,
+    running: Arc<Mutex<bool>>,
+    frame_images: Arc<Vec<SvgImage>>,
+    frame_idx: Arc<Mutex<u8>>,
+    handle: fltk::app::TimeoutHandle,
+) {
+    if !*running.lock().unwrap() {
+        // 避免runnning=false，多余绘制
+        return;
+    }
+
+    let frame_idx = {
+        let mut frame_idx = frame_idx.lock().unwrap();
+        let idx = *frame_idx;
+        *frame_idx = (idx + 1) % 8;
+        idx
+    };
+
+    frame.set_image(Some(frame_images[frame_idx as usize].clone()));
+    frame.redraw();
+
+    fltk::app::repeat_timeout3(LoadingSpinner::TIMEOUT_SECONDS, handle);
 }
 
 fn create_success_image(width: i32, height: i32) -> SvgImage {

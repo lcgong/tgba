@@ -18,37 +18,30 @@ pub enum Step2Message {
         target_dir: String,
     },
     Start,
-    StartJob1,
-    StartJob2,
-    SuccessJob1,
-    SuccessJob2,
-    ErrorJob1(String),
-    ErrorJob2(String),
+    StartJob(usize),
+    SuccessJob(usize),
+    JobMessage(usize, String), // (job_idx, message)
+    ErrorJob(usize, String),   // (job_idx, errmsg)
     Job1Downloading {
         title: String,
         total_size: u64,
         percentage: f64,
         speed: f64,
     },
-    Job1Message(String),
-    Job2Message(String),
     Done,
 }
 
 pub struct Step2Tab {
     panel: Flex,
     sender: Sender<Message>,
-    job1_spinner: LoadingSpinner,
-    job1_message: Frame,
+    job_messages: Vec<Frame>,
+    job_spinners: Vec<LoadingSpinner>,
     job1_progress: Progress,
-    job2_message: Frame,
-    job2_spinner: LoadingSpinner,
 }
 use super::super::status::LoadingSpinner;
 
 static GREY_COLOR: Color = Color::from_rgb(200, 200, 200);
 static MESSAGE_COLOR: Color = Color::from_rgb(10, 10, 10);
-
 
 impl Step2Tab {
     pub fn new(group: &mut Group, style: &AppStyle, sender: Sender<Message>) -> Self {
@@ -59,62 +52,74 @@ impl Step2Tab {
         panel.resize(group.x(), group.y(), group.w(), group.h());
         group.add(&panel);
 
-        panel.set_margins(0, 20, 20, 20);
+        panel.set_margins(40, 20, 40, 20);
 
         Frame::default();
 
-        let mut job1_spinner: LoadingSpinner;
-        let mut job1_message: Frame;
+        let mut job_spinners: Vec<LoadingSpinner> = Vec::new();
+        let mut job_messages: Vec<Frame> = Vec::new();
         let mut job1_progress: Progress;
-        let mut job2_message: Frame;
-        let mut job2_spinner: LoadingSpinner;
 
-        let mut row = Flex::default_fill().row();
-        panel.fixed(&row, 32);
+        // ---------------- Job0 ------------------------------------------
+        let mut job_flex = Flex::default_fill().row();
+        panel.fixed(&job_flex, 32);
         {
-            job1_spinner = LoadingSpinner::new(32);
-            row.fixed(job1_spinner.widget(), 32);
+            let job1_spinner = LoadingSpinner::new(36);
+            job_flex.fixed(job1_spinner.widget(), 36);
+            job_spinners.push(job1_spinner);
 
-            job1_message = Frame::default()
-                .with_label(job_title[0])
-                .with_align(Align::Inside | Align::Left);
-            job1_message.set_label_color(GREY_COLOR);
+            let mut flex = Flex::default_fill().column();
+            flex.set_margins(0, 0, 0, 0);
+            flex.set_spacing(0);
+            {
+                let mut job_message = Frame::default()
+                    .with_label(job_title[0])
+                    .with_align(Align::Inside | Align::Left);
+                job_message.set_label_size(16);
+                job_message.set_label_color(GREY_COLOR);
+                job_messages.push(job_message);
 
-            row.end();
+                job1_progress = Progress::default();
+                flex.fixed(&job1_progress, 4);
+
+                job1_progress.set_color(GREY_COLOR);
+                job1_progress.set_frame(fltk::enums::FrameType::FlatBox);
+
+                job1_progress.set_minimum(0.0);
+                job1_progress.set_maximum(100.0);
+                job1_progress.set_selection_color(style.tgu_color);
+
+                flex.end();
+            }
+            job_flex.end();
         }
 
-        let mut row = Flex::default_fill().row();
-        panel.fixed(&row, 5);
+        panel.fixed(&Frame::default(), 10); // 间隔空行
+
+        //--------------- Job 1 ----------------------------------------------
+        let mut job_flex = Flex::default_fill().row();
+        panel.fixed(&job_flex, 32);
         {
-            let frame = Frame::default();
-            row.fixed(&frame, 32);
+            let spinner = LoadingSpinner::new(36);
+            job_flex.fixed(spinner.widget(), 36);
+            job_spinners.push(spinner);
 
-            job1_progress = Progress::default();
-            job1_progress.set_color(GREY_COLOR);
-            job1_progress.set_frame(fltk::enums::FrameType::FlatBox);
+            let mut flex = Flex::default_fill().column();
+            flex.set_margins(0, 0, 0, 0);
+            flex.set_spacing(0);
+            {
+                let mut job_message = Frame::default()
+                    .with_label(job_title[1])
+                    .with_align(Align::Inside | Align::Left);
+                job_message.set_label_size(16);
+                job_message.set_label_color(GREY_COLOR);
+                job_messages.push(job_message);
 
-            job1_progress.set_minimum(0.0);
-            job1_progress.set_maximum(100.0);
-            job1_progress.set_selection_color(style.tgu_color);
+                flex.fixed(&Frame::default(), 4);
 
-            row.end();
-        }
-
-        let frame = Frame::default();
-        panel.fixed(&frame, 20);
-
-        let mut row = Flex::default_fill().row();
-        panel.fixed(&row, 32);
-        {
-            job2_spinner = LoadingSpinner::new(32);
-            row.fixed(job2_spinner.widget(), 32);
-
-            job2_message = Frame::default()
-                .with_label(job_title[1])
-                .with_align(Align::Inside | Align::Left);
-            job2_message.set_label_color(GREY_COLOR);
-
-            row.end();
+                flex.end();
+            }
+            job_flex.end();
         }
 
         Frame::default();
@@ -124,11 +129,9 @@ impl Step2Tab {
         Step2Tab {
             panel,
             sender,
-            job1_spinner,
-            job1_message,
+            job_spinners,
+            job_messages,
             job1_progress,
-            job2_message,
-            job2_spinner,
         }
     }
 
@@ -154,43 +157,28 @@ impl Step2Tab {
         std::thread::spawn(move || {
             // 在新线程内运行异步代码
             handle.block_on(run(installer, sender));
+            println!("step - work thread finished");
         });
     }
 
     pub fn handle_message(&mut self, msg: Step2Message) {
+        println!("msg: {msg:?}");
         match msg {
-            // Step2Message::Update => {
-            //     //
-            // }
-            // Step2Message::Done => {
-            //     //
-            // }
-            Step2Message::StartJob1 => {
-                self.job1_spinner.start();
-                self.job1_message.set_label_color(MESSAGE_COLOR);
-                self.job1_message.redraw();
+            Step2Message::StartJob(job_idx) => {
+                self.job_spinners[job_idx].start();
+                let message_label = &mut self.job_messages[job_idx];
+                message_label.set_label_color(MESSAGE_COLOR);
+                message_label.redraw();
             }
-            Step2Message::SuccessJob1 => {
-                self.job1_spinner.success();
+            Step2Message::SuccessJob(job_idx) => {
+                self.job_spinners[job_idx].success();
             }
-            Step2Message::ErrorJob1(err) => {
-                self.job1_spinner.error();
+            Step2Message::ErrorJob(job_idx, err) => {
+                self.job_spinners[job_idx].error();
                 fltk::dialog::alert_default(&err);
             }
-            Step2Message::StartJob2 => {
-                self.job2_spinner.start();
-                self.job2_message.set_label_color(MESSAGE_COLOR);
-                self.job2_message.redraw();
-            }
-            Step2Message::SuccessJob2 => {
-                self.job2_spinner.success();
-            }
-            Step2Message::ErrorJob2(err) => {
-                self.job2_spinner.error();
-                fltk::dialog::alert_default(&err);
-            }
-            Step2Message::Job1Message(message) => {
-                self.job1_message.set_label(&message);
+            Step2Message::JobMessage(job_idx, message) => {
+                self.job_messages[job_idx].set_label(&message);
             }
             Step2Message::Job1Downloading {
                 title,
@@ -198,17 +186,12 @@ impl Step2Tab {
                 percentage,
                 speed,
             } => {
-                job1_downloading(
-                    &mut self.job1_message,
-                    &mut self.job1_progress,
-                    &title,
-                    total_size,
-                    percentage,
-                    speed,
-                );
-            }
-            Step2Message::Job2Message(message) => {
-                self.job1_message.set_label(&message);
+                let total_size = format_scale(total_size as f64, 1);
+                let speed = format_scale(speed as f64, 2);
+
+                let msg = format!("{title}, {total_size} \t {speed}/s");
+                self.job_messages[0].set_label(&msg);
+                self.job1_progress.set_value(percentage);
             }
             msg @ _ => {
                 println!("unimplemented {:?}", msg);
@@ -217,28 +200,8 @@ impl Step2Tab {
     }
 }
 
-fn job1_downloading(
-    label: &mut Frame,
-    progress: &mut Progress,
-    title: &str,
-    total_size: u64,
-    percentage: f64,
-    speed: f64,
-) {
-    let total_size = format_scale(total_size as f64, 1);
-    let speed = format_scale(speed as f64, 2);
-
-    let msg = format!("{title}, 大小: {total_size} - 速度: {speed}/s");
-    label.set_label(&msg);
-    progress.set_value(percentage);
-}
-
-fn job2_update(label: &mut Frame, message: &str) {
-    label.set_label(&message);
-}
-
 pub struct StatusUpdater {
-    job_idx: u32,
+    job_idx: usize,
     sender: Sender<Message>,
 }
 
@@ -249,86 +212,74 @@ impl StatusUpdater {
 }
 
 impl StatusUpdater {
-    pub fn start_job(&mut self, job_idx: u32) {
-        self.job_idx = job_idx;
-
-        if job_idx == 0 {
-            self.sender.send(Message::Step2(Step2Message::StartJob1));
-        } else if job_idx == 1 {
-            self.sender.send(Message::Step2(Step2Message::StartJob2));
-        } else {
-            unimplemented!();
-        }
+    pub fn next_job(&mut self) {
+        self.job_idx += 1;
     }
 
-    pub fn success_job(&mut self, job_idx: u32) {
-        self.job_idx = job_idx;
-
-        if job_idx == 0 {
-            self.sender.send(Message::Step2(Step2Message::SuccessJob1));
-        } else if job_idx == 1 {
-            self.sender.send(Message::Step2(Step2Message::SuccessJob2));
-        } else {
-            unimplemented!();
-        }
+    pub fn start_job(&mut self) {
+        self.sender
+            .send(Message::Step2(Step2Message::StartJob(self.job_idx)));
     }
 
-    pub fn error_job(&mut self, job_idx: u32, err: String) {
-        self.job_idx = job_idx;
+    pub fn success_job(&mut self) {
+        self.sender
+            .send(Message::Step2(Step2Message::SuccessJob(self.job_idx)));
+    }
 
-        if job_idx == 0 {
-            self.sender
-                .send(Message::Step2(Step2Message::ErrorJob1(err)));
-        } else if job_idx == 1 {
-            self.sender
-                .send(Message::Step2(Step2Message::ErrorJob2(err)));
-        } else {
-            unimplemented!();
-        }
+    pub fn error_job(&mut self, err: String) {
+        self.sender
+            .send(Message::Step2(Step2Message::ErrorJob(self.job_idx, err)));
     }
 }
 
 impl StatusUpdate for StatusUpdater {
     fn alert(&self, err: &str) {
-        let err = err.to_string();
+        let errmsg = err.to_string();
+        let job_idx = self.job_idx;
+        let sender = self.sender.clone();
         fltk::app::awake_callback(move || {
-            fltk::dialog::alert_default(&err);
+            sender.send(Message::Step2(Step2Message::ErrorJob(
+                job_idx,
+                errmsg.clone(),
+            )));
         });
     }
 
     fn message(&self, msg: &str) {
-        if self.job_idx == 0 {
-            self.sender
-                .send(Message::Step2(Step2Message::Job1Message(msg.to_string())));
-        } else if self.job_idx == 1 {
-            self.sender
-                .send(Message::Step2(Step2Message::Job2Message(msg.to_string())));
-        } else {
-            unimplemented!();
-        }
+        let msg = msg.to_string();
+        let job_idx = self.job_idx;
+        let sender = self.sender.clone();
+        // fltk::app::awake_callback(move || {
+        sender.send(Message::Step2(Step2Message::JobMessage(
+            job_idx,
+            msg.clone(),
+        )));
+        // });
     }
 
-    fn update_progress(&self, value: f64) {
+    fn update_progress(&self, _value: f64) {
         unimplemented!();
     }
 
     fn update_downloading(&self, status: &DownloadingStats) {
-        if self.job_idx == 0 {
-            let sender = self.sender.clone();
-            let title = status.title().to_string();
-            let total_size = status.total_size();
-            let speed = status.speed();
-            let percentage = status.percentage();
-
-            fltk::app::awake_callback(move || {
-                sender.send(Message::Step2(Step2Message::Job1Downloading {
-                    title: title.clone(),
-                    total_size,
-                    percentage,
-                    speed,
-                }));
-            });
+        if self.job_idx != 0 {
+            return;
         }
+
+        let sender = self.sender.clone();
+        let title = status.title().to_string();
+        let total_size = status.total_size();
+        let speed = status.speed();
+        let percentage = status.percentage();
+
+        fltk::app::awake_callback(move || {
+            sender.send(Message::Step2(Step2Message::Job1Downloading {
+                title: title.clone(),
+                total_size,
+                percentage,
+                speed,
+            }));
+        });
     }
 }
 
@@ -361,52 +312,29 @@ pub async fn run(mut installer: Installer, sender: Sender<Message>) {
 
     let mut updater = StatusUpdater::new(sender);
 
-    updater.start_job(0);
-    // if let Err(err) = ensure_python_dist(&mut installer, &updater).await {
-    //     updater.alert(&format!("下载安装CPython中发生错误: {err}"));
-    // };
-                use tokio::time::{sleep, Duration};
-                sleep(Duration::from_millis(5000)).await;
+    updater.start_job();
+    if let Err(err) = ensure_python_dist(&mut installer, &updater).await {
+        updater.error_job(format!("下载安装CPython中发生错误: {err}"));
+        return;
+    };
+    // tokio::time::sleep(tokio::time::Duration::from_millis(5000)).await;
 
-    updater.success_job(0);
+    updater.success_job();
 
-    updater.start_job(1);
+    updater.next_job();
 
-    sleep(Duration::from_millis(5000)).await;
+    updater.start_job();
+    // tokio::time::sleep(tokio::time::Duration::from_millis(5000)).await;
+    if let Err(err) = ensure_venv(&mut installer, &updater).await {
+        updater.error_job(format!("创建Python虚拟环境发生错误: {err}"));
+        return;
+    };
 
-    // if let Err(err) = ensure_venv(&mut installer, &updater).await {
-    //     updater.error_job(1, err.to_string());
-    //     // updater.alert(&format!("创建Python虚拟环境发生错误: {err}"));
-    // };
+    if let Err(err) = set_platform_info(&mut installer) {
+        updater.error_job(format!("获取Python本地平台信息发生错误: {err}"));
+        return;
+    };
+    updater.success_job();
 
-    // if let Err(err) = set_platform_info(&mut installer) {
-    //     updater.alert(&format!("获取Python本地平台信息发生错误: {err}"));
-    // };
-    updater.success_job(1);
-
-    // ensure_python_dist(installer, status_update).await?;
-
-    // ensure_venv(installer, status_update).await?;
-
-    // set_platform_info(installer)?;
 }
 
-// pub async fn run2(progress: Progress) {
-//     // progress.set_callback(cb);
-//     //
-//     println!("started - step1");
-//     for i in 1..101 {
-//         use std::thread::sleep;
-//         use std::time::Duration;
-//         sleep(Duration::from_millis(100));
-//         let msg = format!("Hello world-{:3}", i);
-//         println!("msg: {msg}");
-
-//         fltk::app::awake_callback({
-//             let mut progress = progress.clone();
-//             move || {
-//                 progress.set_value(i as f64);
-//             }
-//         });
-//     }
-// }

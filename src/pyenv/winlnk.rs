@@ -77,16 +77,15 @@ fn create_jupyterlab_lnk(installer: &Installer, work_dir: &PathBuf) -> Result<()
     bail!("创建快捷错误: {}", err);
 }
 
-fn copy_jupyterlab_icon(installer: &Installer) -> Result<()> {
-    use crate::resources::EmbededResources;
-    use std::fs::File;
+use super::super::resources::RESOURCES;
 
-    let icondata = EmbededResources::get(ICON_FILE_NAME).unwrap();
+fn copy_jupyterlab_icon(installer: &Installer) -> Result<()> {
+    use std::fs::File;
 
     let mut icon_file = File::create(installer.tgba_dir().join(ICON_FILE_NAME))?;
 
     use std::io::Write;
-    icon_file.write_all(icondata.data.as_ref())?;
+    icon_file.write_all(RESOURCES.get_app_icon())?;
 
     Ok(())
 }

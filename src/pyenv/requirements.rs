@@ -87,6 +87,8 @@ fn offline_install_requirements(
     Ok(())
 }
 
+use super::super::resources::RESOURCES;
+
 async fn get_requirements_path(installer: &Installer) -> Result<PathBuf> {
     let filename = format!(
         "requirements-{}-{}.txt",
@@ -94,15 +96,12 @@ async fn get_requirements_path(installer: &Installer) -> Result<PathBuf> {
         installer.platform_tag.as_ref().unwrap()
     );
 
-    use crate::resources::EmbededRequirements;
-    let embed_file: rust_embed::EmbeddedFile = EmbededRequirements::get(filename.as_str()).unwrap();
-
     let requirements_path = installer.tgba_dir().join(&filename);
 
     let mut file = File::create(&requirements_path)?;
 
     use std::io::Write;
-    file.write_all(embed_file.data.as_ref())?;
+    file.write_all(RESOURCES.get_requirements_file(&installer.python_version))?;
 
     Ok(requirements_path)
 }

@@ -38,7 +38,7 @@ impl PhaseNavBar {
             "完成",
         ];
 
-        static PHASE_WIDTHS: [i32; 6] = [105, 100, 90, 90, 75, 30];
+        static PHASE_WIDTHS: [i32; 6] = [90, 90, 80, 85, 75, 30];
 
         use fltk::enums::Align;
 
@@ -62,7 +62,7 @@ impl PhaseNavBar {
             phase_state.push(PhaseState::Pending);
 
             if i < PHASE_TITLES.len() - 1 {
-                let mut frame = Frame::default().with_label(">");
+                let mut frame = Frame::default().with_label("»");
                 frame.set_label_color(PhaseNavBar::PENDING_COLOR);
                 navbar_row.fixed(&frame, 15);
                 seps.push(frame);

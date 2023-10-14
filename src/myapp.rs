@@ -20,6 +20,7 @@ use super::{
         step6::{Step6Message, Step6Tab},
     },
     style::AppStyle,
+    resources::RESOURCES,
 };
 
 pub struct MyApp {
@@ -100,6 +101,7 @@ fn app_footer(_s: &Sender<Message>, parent: &mut Flex, style: &AppStyle) {
 
 impl MyApp {
     pub fn new() -> Self {
+
         let app = fltk::app::App::default().with_scheme(fltk::app::Scheme::Gtk);
 
         app.load_system_fonts();
@@ -117,18 +119,13 @@ impl MyApp {
             .center_screen()
             .with_label("TGBA安装程序");
 
-        main_win.begin();
+        // main_win.begin();
 
-        use super::resources::EmbededResources;
-        if let Some(file) = EmbededResources::get("tgba-jupyterlab-48x48.ico") {
-            match IcoImage::from_data(&file.data) {
-                Ok(icon) => main_win.set_icon(Some(icon)),
-                Err(err) => {
-                    fltk::dialog::alert_default(&format!("{err}"));
-                }
-            };
-        } else {
-            println!("no found ico resource");
+        match IcoImage::from_data(RESOURCES.get_app_icon()) {
+            Ok(icon) => main_win.set_icon(Some(icon)),
+            Err(err) => {
+                fltk::dialog::alert_default(&format!("{err}"));
+            }
         };
 
         let mut main_flex = Flex::default_fill().column();

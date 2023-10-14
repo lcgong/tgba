@@ -25,10 +25,8 @@ pub struct CPythonDistSource {
 
 impl Config {
     pub fn load() -> Result<Config> {
-        use crate::resources::EmbededRequirements;
-        let embed_config = EmbededRequirements::get("config.toml").unwrap();
-        let content = String::from_utf8_lossy(embed_config.data.as_ref());
-        let config: Config = toml::from_str(content.as_ref())?;
+        use super::super::resources::RESOURCES;
+        let config: Config = toml::from_str(RESOURCES.get_config_toml())?;
 
         Ok(config)
     }

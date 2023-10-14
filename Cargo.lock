@@ -1568,7 +1568,6 @@ dependencies = [
  "flate2",
  "fltk",
  "hex",
- "lazy_static",
  "mslnk",
  "once_cell",
  "pep440_rs",

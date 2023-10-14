@@ -9,7 +9,6 @@ build = "build.rs"
 anyhow = "1.0.75"
 fltk = { version = "1.4.13", features = ["fltk-bundled"] }
 hex = "0.4.3"
-lazy_static = "1.4.0"
 sha2 = "0.10.7"
 zstd = "0.12.4"
 zip = { version = "0.6.5", features = ["deflate"], default-features = false }

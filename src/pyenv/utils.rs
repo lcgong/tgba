@@ -1,5 +1,5 @@
 use anyhow::{bail, Result};
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use pep440_rs::Version;
 use regex::Regex;
 use std::path::PathBuf;
@@ -13,11 +13,9 @@ pub fn parse_version(version: &str) -> Result<Version> {
     })
 }
 
-pub fn canonicalize_name(name: &str) -> String {
-    lazy_static! {
-        static ref CANONICALIZE_REGEX: Regex = Regex::new("[-_.]+").unwrap();
-    }
+static CANONICALIZE_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new("[-_.]+").unwrap());
 
+pub fn canonicalize_name(name: &str) -> String {
     CANONICALIZE_REGEX.replace_all(name, "-").to_lowercase()
 }
 
@@ -61,8 +59,8 @@ pub fn split_filename_extension(file_name: &str) -> Result<(&str, &str)> {
 }
 
 pub fn get_windows_major_versoin() -> Result<u8> {
-    use winreg::RegKey;
     use winreg::enums::HKEY_LOCAL_MACHINE;
+    use winreg::RegKey;
 
     let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
 
@@ -78,12 +76,12 @@ pub fn get_windows_major_versoin() -> Result<u8> {
     };
 
     // 检查ProductName来确定操作系统版本
-    if product_name.contains("Windows 7")  {
+    if product_name.contains("Windows 7") {
         Ok(7)
     } else if product_name.contains("Windows 10") {
         Ok(10)
     } else if product_name.contains("Windows 8") {
-        Ok(8)        
+        Ok(8)
     } else {
         bail!("不支持的Windows版本")
     }

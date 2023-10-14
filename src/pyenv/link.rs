@@ -1,5 +1,5 @@
 use anyhow::{bail, Result};
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use regex::{Regex, RegexBuilder};
 use url::Url;
 
@@ -91,22 +91,37 @@ struct WheelInfo {
     // build: Option<String>,
 }
 
+static WHEEL_INFO_REGEX: Lazy<Regex> = Lazy::new(|| {
+    RegexBuilder::new(
+        r#"^(?P<namever>(?P<name>[^\s-]+?)-(?P<ver>[^\s-]*?))
+        (
+            (-(?P<build>\d[^-]*?))?
+            -(?P<pyver>[^\s-]+?)
+            -(?P<abi>[^\s-]+?)
+            -(?P<plat>[^\s-]+?)
+        )$"#,
+    )
+    .ignore_whitespace(true)
+    .build()
+    .unwrap()
+});
+
 fn parse_wheel_info(file_base: &str) -> Result<(String, WheelInfo)> {
-    lazy_static! {
-        /// https://github.com/pypa/pip/blob/main/src/pip/_internal/models/wheel.py
-        static ref WHEEL_INFO_REGEX: Regex = RegexBuilder::new(
-            r#"^(?P<namever>(?P<name>[^\s-]+?)-(?P<ver>[^\s-]*?))
-            (
-                (-(?P<build>\d[^-]*?))?
-                -(?P<pyver>[^\s-]+?)
-                -(?P<abi>[^\s-]+?)
-                -(?P<plat>[^\s-]+?)
-            )$"#
-        )
-        .ignore_whitespace(true)
-        .build()
-        .unwrap();
-    }
+    // lazy_static! {
+    //     /// https://github.com/pypa/pip/blob/main/src/pip/_internal/models/wheel.py
+    //     static ref WHEEL_INFO_REGEX: Regex = RegexBuilder::new(
+    //         r#"^(?P<namever>(?P<name>[^\s-]+?)-(?P<ver>[^\s-]*?))
+    //         (
+    //             (-(?P<build>\d[^-]*?))?
+    //             -(?P<pyver>[^\s-]+?)
+    //             -(?P<abi>[^\s-]+?)
+    //             -(?P<plat>[^\s-]+?)
+    //         )$"#
+    //     )
+    //     .ignore_whitespace(true)
+    //     .build()
+    //     .unwrap();
+    // }
 
     let Some(caps) = WHEEL_INFO_REGEX.captures(file_base) else {
         bail!("error in parsing: {}", file_base)
@@ -194,15 +209,20 @@ pub fn parse_link_from_url(
     }
 }
 
+static HASH_REGEX: Lazy<Regex> = Lazy::new(|| {
+    //
+    Regex::new("[#&]?(sha512|sha384|sha256|sha224|sha1|md5)=([^&]*)").unwrap()
+});
+
 fn parse_link_hash(url_fragment: Option<&str>) -> Option<(String, String)> {
     let Some(url_fragment) = url_fragment else {
         return None;
     };
 
-    lazy_static! {
-        static ref HASH_REGEX: regex::Regex =
-            regex::Regex::new("[#&]?(sha512|sha384|sha256|sha224|sha1|md5)=([^&]*)").unwrap();
-    }
+    // lazy_static! {
+    //     static ref HASH_REGEX: regex::Regex =
+    //         regex::Regex::new("[#&]?(sha512|sha384|sha256|sha224|sha1|md5)=([^&]*)").unwrap();
+    // }
 
     let Some(caps) = HASH_REGEX.captures(url_fragment) else {
         return None;
@@ -226,26 +246,40 @@ fn split_version_from_filename(filename: &str, canonical_name: &str) -> Option<u
     None
 }
 
-lazy_static! {
-    static ref WHEEL_EXTENSION: &'static str = ".whl";
-}
+// lazy_static! {
+//     static ref WHEEL_EXTENSION: &'static str = ".whl";
+// }
 
 #[inline]
 fn is_wheel_file(filename_ext: &str) -> bool {
-    filename_ext.to_lowercase() == *WHEEL_EXTENSION
+    filename_ext.to_lowercase() == ".whl"
 }
+
+static SUPPORT_EXTENSIONS: [&'static str; 11] = [
+    ".tar.gz",
+    ".tgz",
+    ".tar", 
+    ".zip",
+    ".tar.bz2",
+    ".tbz",
+    ".tar.xz",
+    ".txz",
+    ".tlz",
+    ".tar.lz",
+    ".tar.lzma",
+];
 
 #[inline]
 fn is_archive_file(extension: &str) -> bool {
     let extension = extension.to_lowercase();
-    lazy_static! {
-        static ref SUPPORT_EXTENSIONS: [&'static str; 11]  = [
-            ".tar.gz", ".tgz", ".tar", // tar
-            ".zip", // zip
-            ".tar.bz2", ".tbz", // bz2
-            ".tar.xz", ".txz", ".tlz", ".tar.lz", ".tar.lzma", // xz
-        ];
-    };
+    // lazy_static! {
+    //     static ref SUPPORT_EXTENSIONS: [&'static str; 11]  = [
+    //         ".tar.gz", ".tgz", ".tar", // tar
+    //         ".zip", // zip
+    //         ".tar.bz2", ".tbz", // bz2
+    //         ".tar.xz", ".txz", ".tlz", ".tar.lz", ".tar.lzma", // xz
+    //     ];
+    // };
 
     for ext in SUPPORT_EXTENSIONS.into_iter() {
         if extension == ext {
@@ -255,4 +289,3 @@ fn is_archive_file(extension: &str) -> bool {
 
     false
 }
-

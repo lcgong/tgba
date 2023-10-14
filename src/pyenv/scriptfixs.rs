@@ -1,9 +1,8 @@
+use super::Installer;
 use anyhow::{bail, Result};
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use regex::Regex;
 use std::fs::File;
-
-use super::Installer;
 
 pub fn fix_patches(installer: &Installer) -> Result<()> {
     fix_win_activate_scripts(installer)?;
@@ -15,13 +14,13 @@ pub fn fix_patches(installer: &Installer) -> Result<()> {
     Ok(())
 }
 
+static SCRIPT_PROPMT_REGEX1: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r#"(set PROMPT=).*(%PROMPT%)"#).unwrap());
+static SCRIPT_PROPMT_REGEX2: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r#"(set VIRTUAL_ENV_PROMPT=).*"#).unwrap());
+
 /// 将虚拟环境提示符改为(TGBA)
 fn fix_win_activate_scripts(installer: &Installer) -> Result<()> {
-    lazy_static! {
-        static ref PTN1: Regex = Regex::new(r#"(set PROMPT=).*(%PROMPT%)"#).unwrap();
-        static ref PTN2: Regex = Regex::new(r#"(set VIRTUAL_ENV_PROMPT=).*"#).unwrap();
-    }
-
     static PROMPT: &'static str = "TGBA ";
 
     let mut script_path = installer.venv_dir.clone();
@@ -38,10 +37,10 @@ fn fix_win_activate_scripts(installer: &Installer) -> Result<()> {
             bail!("从文件读取文本行错误")
         };
 
-        if let Some(caps) = PTN1.captures(&line) {
+        if let Some(caps) = SCRIPT_PROPMT_REGEX1.captures(&line) {
             line = format!("{}{}{} ", &caps[1], PROMPT, &caps[2]);
             println!("{}", line);
-        } else if let Some(caps) = PTN2.captures(&line) {
+        } else if let Some(caps) = SCRIPT_PROPMT_REGEX2.captures(&line) {
             line = format!("{}{}", &caps[1], PROMPT);
             println!("{}", line);
         };
@@ -60,23 +59,25 @@ fn fix_win_activate_scripts(installer: &Installer) -> Result<()> {
     Ok(())
 }
 
-fn fix_matplotlibrc(installer: &Installer) -> Result<()> {
-    lazy_static! {
-        static ref SANS_FONTS: Vec<&'static str> = vec![
-            "Noto Sans CJK SC",
-            "Microsoft YaHei",
-            "SimHei",
-            "DejaVu Sans",
-            "Lucida Sans Unicode",
-            "Arial",
-            "Helvetica",
-            "sans-serif",
-        ];
-        static ref FONTFAMILY_REGEX: Regex = Regex::new(r#"#?(font\.family:.*)"#).unwrap();
-        static ref SANSFAMILY_REGEX: Regex = Regex::new(r#"#?(font\.sans-serif:).*"#).unwrap();
-    }
-    // let
+static SANS_FONTS: [&str; 8] = [
+    "Noto Sans CJK SC",
+    "Microsoft YaHei",
+    "SimHei",
+    "DejaVu Sans",
+    "Lucida Sans Unicode",
+    "Arial",
+    "Helvetica",
+    "sans-serif",
+];
 
+static FONTFAMILY_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r#"#?(font\.family:.*)"#).unwrap() //
+});
+
+static SANSFAMILY_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r#"#?(font\.sans-serif:).*"#).unwrap());
+
+fn fix_matplotlibrc(installer: &Installer) -> Result<()> {
     let mut rcfile_path = installer.venv_dir.clone();
     rcfile_path.extend([
         "Lib",

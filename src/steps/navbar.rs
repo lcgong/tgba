@@ -29,16 +29,15 @@ impl PhaseNavBar {
     const SUCCESS_COLOR: Color = Color::from_rgb(0, 128, 0);
 
     pub fn new(style: &AppStyle) -> Self {
-        static PHASE_TITLES: [&str; 6] = [
+        static PHASE_TITLES: [&str; 5] = [
             "选择安装目录",
             "安装Python",
             "下载程序包",
-            "安装程序包",
-            "配置环境",
+            "安装程序包与配置环境",
             "完成",
         ];
 
-        static PHASE_WIDTHS: [i32; 6] = [90, 90, 80, 85, 75, 30];
+        static PHASE_WIDTHS: [i32; 5] = [90, 90, 80, 145, 30];
 
         use fltk::enums::Align;
 

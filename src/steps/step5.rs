@@ -1,11 +1,10 @@
 use fltk::{
     app::Sender,
     // button::Button,
-    // enums::Align,
+    enums::Align,
     frame::Frame,
     group::{Flex, Group},
-    misc::Progress,
-    prelude::{GroupExt, WidgetBase, WidgetExt},
+    prelude::{GroupExt, WidgetBase, WidgetExt}, button::Button,
 };
 
 use super::super::{myapp::Message, style::AppStyle};
@@ -13,22 +12,15 @@ use super::super::{myapp::Message, style::AppStyle};
 #[derive(Debug)]
 pub enum Step5Message {
     Enter,
-    Update,
-    Done,
 }
 
 pub struct Step5Tab {
-    c_no: usize,
     panel: Flex,
     sender: Sender<Message>,
 }
 
 impl Step5Tab {
-    pub fn new(
-        group: &mut Group,
-        style: &AppStyle,
-        sender: Sender<Message>,
-    ) -> Self {
+    pub fn new(group: &mut Group, _style: &AppStyle, sender: Sender<Message>) -> Self {
         let mut panel = Flex::default_fill().column();
 
         panel.resize(group.x(), group.y(), group.w(), group.h());
@@ -38,21 +30,38 @@ impl Step5Tab {
 
         Frame::default();
 
-        let mut progress = Progress::default();
-        progress.set_minimum(0.0);
-        progress.set_maximum(100.0);
-        progress.set_selection_color(style.tgu_color);
-        panel.fixed(&progress, 10);
+        let mut message = Frame::default()
+            .with_label("恭喜，TGBA实验平台已安装完成")
+            .with_align(Align::Inside | Align::Center);
+        message.set_label_size(20);
 
-        let frame = Frame::default();
-        panel.fixed(&frame, 30);
+        panel.fixed(&Frame::default(), 25);
+
+        let mut btn_flex = Flex::default_fill().row();
+        Frame::default();
+        let mut done_btn = Button::default().with_label("关闭安装程序");
+        // done_btn.set_frame(fltk::enums::FrameType::ShadowFrame);
+        done_btn.set_label_size(18);
+        btn_flex.fixed(&done_btn, 120);
+        Frame::default();
+        btn_flex.end();
+
+        panel.fixed(&btn_flex, 35);
+
+        done_btn.set_callback(|_| {
+            fltk::app::quit();
+        });
+
+        // let frame = Frame::default();
+        // panel.fixed(&frame, 30);
 
         Frame::default();
 
         panel.end();
 
+
+
         Step5Tab {
-            c_no: 2,
             panel,
             sender,
         }
@@ -62,28 +71,13 @@ impl Step5Tab {
         &self.panel
     }
 
-    pub fn c(&self) {
-        println!("c");
-    }
-
-    pub fn handle_message(&mut self, msg: Step5Message) {
-        println!("handle: {}", self.c_no);
-
-        match msg {
-            Step5Message::Enter => {
-                let s = self.sender.clone();
-                tokio::spawn(async move {
-                    use std::time::Duration;
-                    tokio::time::sleep(Duration::from_millis(2000)).await;
-                    s.send(Message::Step5(Step5Message::Done));
-                });
-            }
-            Step5Message::Update => {
-                //
-            }
-            Step5Message::Done => {
-                //
-            }
-        }
-    }
+    // pub fn handle_message(&mut self, msg: Step5Message) {
+    //     match msg {
+    //         Step5Message::Enter => {
+    //         }
+    //         msg @ _ => {
+    //             unimplemented!("{msg:?}")
+    //         }
+    //     }
+    // }
 }

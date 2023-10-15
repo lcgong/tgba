@@ -18,7 +18,7 @@ use super::{
         step3::{Step3Message, Step3Tab},
         step4::{Step4Message, Step4Tab},
         step5::{Step5Message, Step5Tab},
-        step6::{Step6Message, Step6Tab},
+        // step6::{Step6Message, Step6Tab},
     },
     style::AppStyle,
 };
@@ -42,7 +42,7 @@ pub enum Message {
     Step3(Step3Message),
     Step4(Step4Message),
     Step5(Step5Message),
-    Step6(Step6Message),
+    // Step6(Step6Message),
     Quit,
 }
 
@@ -144,7 +144,7 @@ impl MyApp {
             Box::new(Step3Tab::new(&mut step_group, &style, s.clone())),
             Box::new(Step4Tab::new(&mut step_group, &style, s.clone())),
             Box::new(Step5Tab::new(&mut step_group, &style, s.clone())),
-            Box::new(Step6Tab::new(&mut step_group, &style, s.clone())),
+            // Box::new(Step6Tab::new(&mut step_group, &style, s.clone())),
         ];
         step_group.end();
 
@@ -199,9 +199,15 @@ impl MyApp {
         });
 
         // myapp.s.send(Message::Step1(Step1Message::Enter));
-        myapp.s.send(Message::Step2(Step2Message::Enter {
-            target_dir: "D:\\2".to_string(),
-        }));
+        // myapp.s.send(Message::Step2(Step2Message::Enter {
+        //     target_dir: "D:\\2".to_string(),
+        // }));
+
+        // myapp.s.send(Message::Step4(Step4Message::Enter(
+        //     super::pyenv::Installer::new(std::path::PathBuf::from("D:\\2".to_string())).unwrap(),
+        // )));
+
+        myapp.s.send(Message::Step5(Step5Message::Enter));
 
         myapp
     }
@@ -272,7 +278,9 @@ impl MyApp {
                     // d.handle_message(msg);
                 }
                 Step3(Step3Message::Done) => {
-                    s.send(Step4(Step4Message::Enter));
+                    let step_tab = self.get_step_mut::<Step3Tab>();
+                    let installer = step_tab.take_installer();
+                    s.send(Step4(Step4Message::Enter(installer)));
                 }
                 Step3(msg) => {
                     let d = self.get_step_mut::<Step3Tab>();
@@ -280,50 +288,29 @@ impl MyApp {
                 }
 
                 //
-                Step4(msg @ Step4Message::Enter) => {
+                Step4(Step4Message::Enter(installer)) => {
                     self.set_step(3);
-                    let d = self.get_step_mut::<Step4Tab>();
-                    d.c();
-                    d.handle_message(msg);
+                    let step = self.get_step_mut::<Step4Tab>();
+                    step.start(installer);
+                    // d.handle_message(msg);
                 }
                 Step4(Step4Message::Done) => {
-                    // println!("step4: done");
-                    // s.send(Step5(Step5Message::Enter));
+                    s.send(Step5(Step5Message::Enter));
                 }
                 Step4(msg) => {
                     let d = self.get_step_mut::<Step4Tab>();
                     d.handle_message(msg);
                 }
                 //
-                Step5(msg @ Step5Message::Enter) => {
+                Step5(Step5Message::Enter) => {
                     self.set_step(4);
-                    let d = self.get_step_mut::<Step5Tab>();
-                    d.c();
-                    d.handle_message(msg);
+                    // let step: &mut Step5Tab = self.get_step_mut::<Step5Tab>();
+                    // d.handle_message(msg);
                 }
-                Step5(Step5Message::Done) => {
-                    println!("step5: done");
-                    s.send(Step6(Step6Message::Enter));
-                }
-                Step5(msg) => {
-                    let d = self.get_step_mut::<Step5Tab>();
-                    d.handle_message(msg);
-                }
-                //
-                Step6(msg @ Step6Message::Enter) => {
-                    self.set_step(5);
-                    let d = self.get_step_mut::<Step6Tab>();
-                    d.c();
-                    d.handle_message(msg);
-                }
-                Step6(Step6Message::Done) => {
-                    println!("step6: done");
-                    // s.send(Step6(Step6Message::Enter));
-                }
-                Step6(msg) => {
-                    let d = self.get_step_mut::<Step6Tab>();
-                    d.handle_message(msg);
-                }
+                // Step5(msg) => {
+                //     let step = self.get_step_mut::<Step5Tab>();
+                //     step.handle_message(msg);
+                // }
                 Quit => {
                     super::dialog::confirm_quit_dialog(&self.main_win);
                 }

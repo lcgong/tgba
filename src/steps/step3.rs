@@ -188,6 +188,10 @@ impl Step3Tab {
         });
     }
 
+    pub fn take_installer(&mut self) -> Installer {
+        self.installer.take().unwrap()
+    }
+
     pub fn handle_message(&mut self, msg: Step3Message) {
         // println!("handle: {}", self.c_no);
 

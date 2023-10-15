@@ -56,12 +56,14 @@ pub async fn install_requirements(
     Ok(())
 }
 
-pub fn offline_install_requirements(
+pub async fn offline_install_requirements(
     installer: &Installer,
-    requirements_path: &PathBuf,
-    cached_packages_dir: &PathBuf,
+    status_updater: &impl StatusUpdate,
 ) -> Result<()> {
     use super::venv::venv_python_cmd;
+
+    let requirements_path = &get_requirements_path(installer).await?;
+    let cached_packages_dir = &installer.cached_packages_dir;
 
     let output = match venv_python_cmd(
         installer,

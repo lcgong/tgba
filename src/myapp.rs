@@ -10,6 +10,7 @@ use fltk::{
 use std::any::Any;
 
 use super::{
+    resources::RESOURCES,
     steps::{
         navbar::PhaseNavBar,
         step1::{Step1Message, Step1Tab},
@@ -20,7 +21,6 @@ use super::{
         step6::{Step6Message, Step6Tab},
     },
     style::AppStyle,
-    resources::RESOURCES,
 };
 
 pub struct MyApp {
@@ -31,7 +31,7 @@ pub struct MyApp {
     step_idx: usize,
     step_group: Group,
     step_objs: Vec<Box<dyn Any>>,
-    // main_win: DoubleWindow,
+    main_win: DoubleWindow,
     // style: AppStyle,
 }
 
@@ -53,7 +53,7 @@ fn app_title(parent: &mut Flex, style: &AppStyle) {
     parent.fixed(&panel, 42);
 
     let mut title_zh = Frame::default()
-        .with_label("天工业务数据分析(TGBA)实验环境 - 自助安装")
+        .with_label("业务数据分析(TGBA)实验环境 - 自助安装")
         .with_align(Align::Inside | Align::Left);
     title_zh.set_label_font(style.font_bold_zh);
     title_zh.set_label_size(22);
@@ -101,7 +101,6 @@ fn app_footer(_s: &Sender<Message>, parent: &mut Flex, style: &AppStyle) {
 
 impl MyApp {
     pub fn new() -> Self {
-
         let app = fltk::app::App::default().with_scheme(fltk::app::Scheme::Gtk);
 
         app.load_system_fonts();
@@ -120,6 +119,8 @@ impl MyApp {
             .with_label("TGBA安装程序");
 
         // main_win.begin();
+        // let frame =Frame::default();
+        // frame.center_of(&main_win);
 
         match IcoImage::from_data(RESOURCES.get_app_icon()) {
             Ok(icon) => main_win.set_icon(Some(icon)),
@@ -152,9 +153,7 @@ impl MyApp {
         main_win.end();
         main_win.show();
 
-        
-
-        let myapp = MyApp {
+        let mut myapp = MyApp {
             app,
             r,
             s,
@@ -162,10 +161,11 @@ impl MyApp {
             step_group,
             navbar,
             step_objs,
+            main_win,
             // style,
         };
 
-        main_win.set_callback({
+        myapp.main_win.set_callback({
             let s = myapp.s.clone();
             move |_| {
                 let event = fltk::app::event();
@@ -175,20 +175,22 @@ impl MyApp {
             }
         });
 
-        main_win.handle({
+        myapp.main_win.handle({
             let mut x = 0;
             let mut y = 0;
             move |w, ev| {
                 // 按住鼠标移动窗口
                 match ev {
                     Event::Push => {
-                        let (coord_x, coord_y) = fltk::app::event_coords();
-                        x = coord_x;
-                        y = coord_y;
+                        let (evt_x, evt_y) = fltk::app::event_coords();
+                        x = evt_x;
+                        y = evt_y;
                         true
                     }
                     Event::Drag => {
-                        w.set_pos(fltk::app::event_x_root() - x, fltk::app::event_y_root() - y);
+                        let root_x = fltk::app::event_x_root();
+                        let root_y = fltk::app::event_y_root();
+                        w.set_pos(root_x - x, root_y - y);
                         true
                     }
                     _ => false,
@@ -197,7 +199,9 @@ impl MyApp {
         });
 
         // myapp.s.send(Message::Step1(Step1Message::Enter));
-        myapp.s.send(Message::Step2(Step2Message::Enter {target_dir : "D:\\2".to_string()}));
+        myapp.s.send(Message::Step2(Step2Message::Enter {
+            target_dir: "D:\\2".to_string(),
+        }));
 
         myapp
     }
@@ -321,7 +325,7 @@ impl MyApp {
                     d.handle_message(msg);
                 }
                 Quit => {
-                    super::dialog::confirm_quit_dialog();
+                    super::dialog::confirm_quit_dialog(&self.main_win);
                 }
             }
         }

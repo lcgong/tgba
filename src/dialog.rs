@@ -7,20 +7,39 @@ use fltk::{
     window::DoubleWindow,
 };
 
+fn center_of_window<Widget: WidgetExt, Window: WidgetExt>(win: &mut Widget, parent: &Window) {
+    // println!(
+    //     "[{}, {}] of [{},{}] @ {}, {}",
+    //     win.width(),
+    //     win.height(),
+    //     parent.width(),
+    //     parent.height(),
+    //     parent.x(),
+    //     parent.y()
+    // );
+
+    let (sw, sh) = (win.width(), win.height());
+    let (pw, ph) = (parent.width(), parent.height());
+    let x = ((pw - sw) as f32 / 2.0) as i32 + parent.x();
+    let y = ((ph - sh) as f32 / 2.0) as i32 + parent.y();
+    win.set_pos(x, y);
+}
+
 pub struct QuitConfirmDialog {}
 
 impl QuitConfirmDialog {
-    pub fn default() -> Self {
+    pub fn new<W: WidgetExt>(parent: &W) -> Self {
         let width = 400;
         let height = 120;
 
-        let x = fltk::app::event_x_root() - width / 2;
-        let y = fltk::app::event_y_root() - height / 2;
+        // let x = fltk::app::event_x_root() - width / 2;
+        // let y = fltk::app::event_y_root() - height / 2;
 
         let mut win = DoubleWindow::default()
             .with_size(width, height)
             .with_label("请确认");
-        win.set_pos(x, y);
+
+        center_of_window(&mut win, parent);
 
         let mut body_flex = Flex::default_fill().column();
         body_flex.set_spacing(10);
@@ -88,8 +107,8 @@ impl QuitConfirmDialog {
     }
 }
 
-pub fn confirm_quit_dialog() {
-    QuitConfirmDialog::default();
+pub fn confirm_quit_dialog<W: WidgetExt>(parent: &W) {
+    QuitConfirmDialog::new(parent);
 }
 
 // fn style_button(btn: &mut fltk::button::Button) {

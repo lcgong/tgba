@@ -11,6 +11,8 @@ use std::path::PathBuf;
 use super::super::pyenv::Installer;
 use super::super::status::{DownloadingStats, StatusUpdate};
 use super::super::{myapp::Message, style::AppStyle};
+use super::super::status::LoadingSpinner;
+use super::utils::format_scale;
 
 #[derive(Debug)]
 pub enum Step2Message {
@@ -37,8 +39,8 @@ pub struct Step2Tab {
     job_messages: Vec<Frame>,
     job_spinners: Vec<LoadingSpinner>,
     job1_progress: Progress,
+    installer: Option<Installer>,
 }
-use super::super::status::LoadingSpinner;
 
 static GREY_COLOR: Color = Color::from_rgb(200, 200, 200);
 static MESSAGE_COLOR: Color = Color::from_rgb(10, 10, 10);
@@ -132,6 +134,7 @@ impl Step2Tab {
             job_spinners,
             job_messages,
             job1_progress,
+            installer: None,
         }
     }
 
@@ -147,18 +150,21 @@ impl Step2Tab {
                 return;
             }
         };
+        
+        self.installer = Some(installer.clone());
 
         use tokio::runtime::Handle;
         let handle = Handle::current();
         // let progress = self.progress_bar.clone();
         // let message_label = self.message_label.clone();
-        let installer = installer.clone();
+        // let installer = installer.clone();
         let sender = self.sender.clone();
         std::thread::spawn(move || {
             // 在新线程内运行异步代码
             handle.block_on(run(installer, sender));
             println!("step - work thread finished");
         });
+
     }
 
     pub fn handle_message(&mut self, msg: Step2Message) {
@@ -198,6 +204,11 @@ impl Step2Tab {
             }
         }
     }
+
+
+    pub fn take_installer(&mut self) -> Installer {
+        self.installer.take().unwrap()
+    }
 }
 
 pub struct StatusUpdater {
@@ -230,6 +241,10 @@ impl StatusUpdater {
         self.sender
             .send(Message::Step2(Step2Message::ErrorJob(self.job_idx, err)));
     }
+
+    pub fn done(&mut self) {
+        self.sender.send(Message::Step2(Step2Message::Done));
+    }
 }
 
 impl StatusUpdate for StatusUpdater {
@@ -257,7 +272,7 @@ impl StatusUpdate for StatusUpdater {
         // });
     }
 
-    fn update_progress(&self, _value: f64) {
+    fn update_progress(&self, num: u32, max_num: u32) {
         unimplemented!();
     }
 
@@ -283,27 +298,6 @@ impl StatusUpdate for StatusUpdater {
     }
 }
 
-fn format_scale(size: f64, precision: usize) -> String {
-    let scale_kb = 2u64.pow(10) as f64;
-    if size < scale_kb {
-        return format!("{size:.0}B");
-    }
-
-    let scale_mb = 2u64.pow(20) as f64;
-    if size < scale_mb {
-        let size = (size as f64) / (scale_kb as f64);
-        return format!("{size:.*}KiB", precision);
-    }
-
-    let scale_gb = 2u64.pow(30) as f64;
-    if size < scale_gb {
-        let size = (size as f64) / (scale_mb as f64);
-        return format!("{size:.*}MiB", precision);
-    }
-
-    let size = (size as f64) / (scale_gb as f64);
-    return format!("{size:.*}GiB", precision);
-}
 
 pub async fn run(mut installer: Installer, sender: Sender<Message>) {
     println!("started - step1");
@@ -336,5 +330,5 @@ pub async fn run(mut installer: Installer, sender: Sender<Message>) {
     };
     updater.success_job();
 
+    updater.done();
 }
-

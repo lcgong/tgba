@@ -256,22 +256,22 @@ impl MyApp {
                     // s.send(Step2(Step2Message::Start));
                 }
                 Step2(Step2Message::Done) => {
-                    println!("step2: done");
-                    s.send(Step3(Step3Message::Enter));
+                    let step_tab = self.get_step_mut::<Step2Tab>();
+                    let installer = step_tab.take_installer();
+                    s.send(Step3(Step3Message::Enter(installer)));
                 }
                 Step2(msg) => {
                     let d = self.get_step_mut::<Step2Tab>();
                     d.handle_message(msg);
                 }
                 //
-                Step3(msg @ Step3Message::Enter) => {
+                Step3(Step3Message::Enter(installer)) => {
                     self.set_step(2);
-                    let d = self.get_step_mut::<Step3Tab>();
-                    d.c();
-                    d.handle_message(msg);
+                    let step = self.get_step_mut::<Step3Tab>();
+                    step.start(installer);
+                    // d.handle_message(msg);
                 }
                 Step3(Step3Message::Done) => {
-                    println!("step3: done");
                     s.send(Step4(Step4Message::Enter));
                 }
                 Step3(msg) => {
@@ -287,8 +287,8 @@ impl MyApp {
                     d.handle_message(msg);
                 }
                 Step4(Step4Message::Done) => {
-                    println!("step4: done");
-                    s.send(Step5(Step5Message::Enter));
+                    // println!("step4: done");
+                    // s.send(Step5(Step5Message::Enter));
                 }
                 Step4(msg) => {
                     let d = self.get_step_mut::<Step4Tab>();

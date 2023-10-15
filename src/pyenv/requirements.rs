@@ -25,8 +25,10 @@ pub async fn install_requirements(
 
     let pypi_mirrors = installer.pypi_mirrors();
 
+    let n_downloads = requirements.len();
+
     use super::project::download_requirement;
-    for requirement in &requirements {
+    for (idx, requirement) in requirements.iter().enumerate() {
         let mut success = false;
 
         for pypi in pypi_mirrors {
@@ -36,8 +38,8 @@ pub async fn install_requirements(
                     break;
                 }
                 Err(err) => {
-                    let msg = format!("下载{}出现错误: {}", requirement.name, err);
-                    installer.log_error(msg.as_str());
+                    status_updater
+                        .alert(format!("下载{}出现错误: {}", requirement.name, err).as_str());
                 }
             };
         }
@@ -45,14 +47,16 @@ pub async fn install_requirements(
         if !success {
             bail!("需求{}无PYPI镜像可用", requirement.name)
         }
+
+        status_updater.update_progress(idx as u32 + 1, n_downloads as u32);
     }
 
-    offline_install_requirements(installer, requirements_path, cached_packages_dir)?;
+    // offline_install_requirements(installer, requirements_path, cached_packages_dir)?;
 
     Ok(())
 }
 
-fn offline_install_requirements(
+pub fn offline_install_requirements(
     installer: &Installer,
     requirements_path: &PathBuf,
     cached_packages_dir: &PathBuf,

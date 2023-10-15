@@ -2,9 +2,11 @@ use std::time::{Duration, Instant};
 
 pub trait StatusUpdate {
     fn alert(&self, err: &str);
+
     fn message(&self, msg: &str);
 
-    fn update_progress(&self, value: f64);
+    fn update_progress(&self, num: u32, max_num: u32);
+    
     fn update_downloading(&self, status: &DownloadingStats);
 }
 

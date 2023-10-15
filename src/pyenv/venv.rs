@@ -17,8 +17,6 @@ pub async fn ensure_python_venv(
 
     ensure_venv(installer, status_update).await?;
 
-    set_platform_info(installer)?;
-
     Ok(())
 }
 

@@ -9,6 +9,7 @@ pub mod resources;
 pub mod status;
 pub mod steps;
 pub mod style;
+pub mod utils;
 
 use anyhow::Result;
 
@@ -16,19 +17,6 @@ use anyhow::Result;
 async fn main() -> Result<()> {
     let mut app = myapp::MyApp::new();
     app.run();
-
-    // use pyenv::Installer;
-    // let target_dir = std::env::current_dir()?;
-
-    // use pyenv::{create_winlnk, fix_patches};
-    // use pyenv::{ensure_python_venv, install_requirements};
-
-    // let mut installer = Installer::new(target_dir)?;
-
-    // ensure_python_venv(&mut installer).await?;
-    // install_requirements(&installer).await?;
-    // create_winlnk(&installer, &installer.target_dir())?;
-    // fix_patches(&installer)?;
 
     Ok(())
 }

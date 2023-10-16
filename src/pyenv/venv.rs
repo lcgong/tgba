@@ -2,12 +2,12 @@ use anyhow::{bail, Result};
 use std::fs::File;
 use std::process::{Command, Stdio};
 
+use super::super::status::StatusUpdate;
 use super::archive::{checksum, unpack_archive};
 use super::download::download;
 use super::utils::make_python_bin_path;
+use super::utils::split_filename_extension;
 use super::Installer;
-
-use super::super::status::StatusUpdate;
 
 pub async fn ensure_python_venv(
     installer: &mut Installer,
@@ -31,7 +31,7 @@ print(json.dumps({
 }))
 "#;
 
-pub fn set_platform_info(installer: &mut Installer) -> Result<()> {
+pub fn set_platform_info(installer: &mut Installer, collector: &impl StatusUpdate) -> Result<()> {
     let tmp_dir = tempfile::tempdir()?;
 
     let script_file = tmp_dir.path().join("platform_info.py");
@@ -43,7 +43,7 @@ pub fn set_platform_info(installer: &mut Installer) -> Result<()> {
     file.write_all(PLATFORM_INFO_SCRIPT.as_bytes())?;
     file.sync_all()?;
 
-    println!("file: {}", &script_file.display());
+    collector.log_debug(format!("platform script file: {}", &script_file.display()));
 
     let output = Command::new(&installer.venv_python_path)
         .arg(&script_file)
@@ -56,8 +56,9 @@ pub fn set_platform_info(installer: &mut Installer) -> Result<()> {
     let json_msg: serde_json::Value = serde_json::from_str(&output)?;
 
     installer.platform_tag = Some(json_msg["platform_tag"].as_str().unwrap().to_string());
-    let support_tags_map = &mut installer.support_tags_map;
+    collector.log_debug(format!("系统平台标签: {}", json_msg["platform_tag"]));
 
+    let support_tags_map = &mut installer.support_tags_map;
     for (i, tag) in json_msg["support_tags"]
         .as_array()
         .unwrap()
@@ -68,12 +69,14 @@ pub fn set_platform_info(installer: &mut Installer) -> Result<()> {
         support_tags_map.insert(tag.to_string(), i as u32);
     }
 
+    collector.log_debug(format!("系统支持的平台标签: {}", json_msg["support_tags"]));
+
     Ok(())
 }
 
 pub async fn ensure_python_dist(
     installer: &Installer,
-    status_updater: &impl StatusUpdate,
+    collector: &impl StatusUpdate,
 ) -> Result<()> {
     let pydist_dir = &installer.pydist_dir;
     let python_bin = make_python_bin_path(pydist_dir);
@@ -81,7 +84,7 @@ pub async fn ensure_python_dist(
     let pyver = installer.python_version_full.as_str();
 
     if pydist_dir.is_dir() && python_bin.is_file() {
-        status_updater.message(format!("自带CPython-{}已安装", pyver).as_str());
+        collector.message(format!("自带CPython-{}已安装", pyver).as_str());
         return Ok(());
     }
 
@@ -91,19 +94,15 @@ pub async fn ensure_python_dist(
 
     let cpython_source = &installer.pydist_source;
 
-    // let (dist_url, dist_digest) = &installer.pydist_source;
-
-    use super::utils::split_filename_extension;
-
     let Ok((_file_base, file_ext)) = split_filename_extension(cpython_source.url()) else {
         bail!("地址文件解析扩展名错误: {}", cpython_source.url())
     };
 
-    status_updater.message(&format!("下载CPython-{pyver}安装包", ));
+    collector.message(&format!("下载CPython-{pyver}安装包",));
 
     let buffer = download(
         installer,
-        status_updater,
+        collector,
         cpython_source.url(),
         &format!("下载CPython-{}安装包", pyver),
     )
@@ -113,10 +112,10 @@ pub async fn ensure_python_dist(
         bail!("hash check of {} failed", cpython_source.url())
     }
 
-    status_updater.message(format!("解压CPython-{}安装包", pyver).as_str());
+    collector.message(format!("解压CPython-{}安装包", pyver).as_str());
     unpack_archive(file_ext, &buffer, pydist_dir)?;
 
-    status_updater.message(format!("CPython-{}安装完成", installer.python_version_full).as_str());
+    collector.message(format!("CPython-{}安装完成", installer.python_version_full).as_str());
 
     Ok(())
 }
@@ -161,7 +160,13 @@ pub async fn ensure_venv(installer: &Installer, status_updater: &impl StatusUpda
     Ok(())
 }
 
-pub fn venv_python_cmd(installer: &Installer, args: &[&str]) -> Result<std::process::Output> {
+use super::super::utils::detect_decode;
+
+pub fn venv_python_cmd(
+    installer: &Installer,
+    collector: &impl StatusUpdate,
+    args: &[&str],
+) -> Result<std::process::Output> {
     let python_bin = &installer.venv_python_path;
 
     // 将venv/Script目录添加到环境变量PATH中
@@ -202,6 +207,20 @@ pub fn venv_python_cmd(installer: &Installer, args: &[&str]) -> Result<std::proc
             }
         }
     };
+
+    let stdout_string = detect_decode(&output.stdout);
+    collector.log_debug(if output.stderr.is_empty() {
+        format!(
+            "CMD {}\nSTATUS: {}\nSTDOUT:{}\n",
+            prog_cmd, output.status, stdout_string
+        )
+    } else {
+        let stderr_string = detect_decode(&output.stderr);
+        format!(
+            "CMD: {}\nSTATUS: {}\nSTDOUT:\n{}\nSTDERR:\n{}\n",
+            prog_cmd, output.status, stdout_string, stderr_string,
+        )
+    });
 
     Ok(output)
 }

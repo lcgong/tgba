@@ -31,6 +31,8 @@ toml = "0.8.2"
 serde_derive = "1.0.188"
 sysinfo = "0.29.10"
 once_cell = "1.18.0"
+encoding_rs = "0.8.33"
+
 
 [profile.release]
 codegen-units = 1

@@ -52,9 +52,7 @@ pub async fn download(
     Ok(buffer)
 }
 
-pub async fn fetch_text(installer: &Installer, url: &str, title: &str) -> Result<String> {
-    installer.log(title);
-
+pub async fn fetch_text(installer: &Installer, url: &str, _title: &str) -> Result<String> {
     let resp = match installer.client.get(url).send().await {
         Ok(resp) => resp,
         Err(err) => bail!("{}", err),

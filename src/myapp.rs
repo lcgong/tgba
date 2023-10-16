@@ -7,7 +7,10 @@ use fltk::{
     prelude::{GroupExt, WidgetBase, WidgetExt, WindowExt},
     window::DoubleWindow,
 };
-use std::any::Any;
+use std::{
+    any::Any,
+    sync::{Arc, Mutex},
+};
 
 use super::{
     resources::RESOURCES,
@@ -23,6 +26,14 @@ use super::{
     style::AppStyle,
 };
 
+pub enum InstallerLogRecord {
+    Debug(String),
+    Info(String),
+    Error(String),
+}
+
+pub type InstallerLogs = Arc<Mutex<Vec<InstallerLogRecord>>>;
+
 pub struct MyApp {
     app: fltk::app::App,
     r: Receiver<Message>,
@@ -32,7 +43,7 @@ pub struct MyApp {
     step_group: Group,
     step_objs: Vec<Box<dyn Any>>,
     main_win: DoubleWindow,
-    // style: AppStyle,
+    logs: InstallerLogs, // style: AppStyle,
 }
 
 #[derive(Debug)]
@@ -42,7 +53,6 @@ pub enum Message {
     Step3(Step3Message),
     Step4(Step4Message),
     Step5(Step5Message),
-    // Step6(Step6Message),
     Quit,
 }
 
@@ -101,6 +111,8 @@ fn app_footer(_s: &Sender<Message>, parent: &mut Flex, style: &AppStyle) {
 
 impl MyApp {
     pub fn new() -> Self {
+        let logs = Arc::new(Mutex::new(Vec::new()));
+
         let app = fltk::app::App::default().with_scheme(fltk::app::Scheme::Gtk);
 
         app.load_system_fonts();
@@ -139,12 +151,36 @@ impl MyApp {
 
         let mut step_group = Group::default_fill();
         let step_objs: Vec<Box<dyn Any>> = vec![
-            Box::new(Step1Tab::new(&mut step_group, &style, s.clone())),
-            Box::new(Step2Tab::new(&mut step_group, &style, s.clone())),
-            Box::new(Step3Tab::new(&mut step_group, &style, s.clone())),
-            Box::new(Step4Tab::new(&mut step_group, &style, s.clone())),
-            Box::new(Step5Tab::new(&mut step_group, &style, s.clone())),
-            // Box::new(Step6Tab::new(&mut step_group, &style, s.clone())),
+            Box::new(Step1Tab::new(
+                logs.clone(),
+                &mut step_group,
+                &style,
+                s.clone(),
+            )),
+            Box::new(Step2Tab::new(
+                logs.clone(),
+                &mut step_group,
+                &style,
+                s.clone(),
+            )),
+            Box::new(Step3Tab::new(
+                logs.clone(),
+                &mut step_group,
+                &style,
+                s.clone(),
+            )),
+            Box::new(Step4Tab::new(
+                logs.clone(),
+                &mut step_group,
+                &style,
+                s.clone(),
+            )),
+            Box::new(Step5Tab::new(
+                logs.clone(),
+                &mut step_group,
+                &style,
+                s.clone(),
+            )),
         ];
         step_group.end();
 
@@ -162,7 +198,7 @@ impl MyApp {
             navbar,
             step_objs,
             main_win,
-            // style,
+            logs,
         };
 
         myapp.main_win.set_callback({
@@ -199,15 +235,14 @@ impl MyApp {
         });
 
         // myapp.s.send(Message::Step1(Step1Message::Enter));
-        // myapp.s.send(Message::Step2(Step2Message::Enter {
-        //     target_dir: "D:\\2".to_string(),
-        // }));
+        myapp.s.send(Message::Step2(Step2Message::Enter {
+            target_dir: "D:\\2".to_string(),
+        }));
 
         // myapp.s.send(Message::Step4(Step4Message::Enter(
         //     super::pyenv::Installer::new(std::path::PathBuf::from("D:\\2".to_string())).unwrap(),
         // )));
-
-        myapp.s.send(Message::Step5(Step5Message::Enter));
+        // myapp.s.send(Message::Step5(Step5Message::Enter));
 
         myapp
     }
@@ -261,25 +296,21 @@ impl MyApp {
                     step_tab.start(&target_dir);
                     // s.send(Step2(Step2Message::Start));
                 }
-                Step2(Step2Message::Done) => {
-                    let step_tab = self.get_step_mut::<Step2Tab>();
-                    let installer = step_tab.take_installer();
+                Step2(Step2Message::Done(installer)) => {
                     s.send(Step3(Step3Message::Enter(installer)));
                 }
                 Step2(msg) => {
                     let d = self.get_step_mut::<Step2Tab>();
                     d.handle_message(msg);
                 }
-                //
+
+                //----------------------------------------------
                 Step3(Step3Message::Enter(installer)) => {
                     self.set_step(2);
                     let step = self.get_step_mut::<Step3Tab>();
                     step.start(installer);
-                    // d.handle_message(msg);
                 }
-                Step3(Step3Message::Done) => {
-                    let step_tab = self.get_step_mut::<Step3Tab>();
-                    let installer = step_tab.take_installer();
+                Step3(Step3Message::Done(installer)) => {
                     s.send(Step4(Step4Message::Enter(installer)));
                 }
                 Step3(msg) => {
@@ -287,30 +318,29 @@ impl MyApp {
                     d.handle_message(msg);
                 }
 
-                //
+                //----------------------------------------------
                 Step4(Step4Message::Enter(installer)) => {
                     self.set_step(3);
                     let step = self.get_step_mut::<Step4Tab>();
                     step.start(installer);
-                    // d.handle_message(msg);
                 }
-                Step4(Step4Message::Done) => {
-                    s.send(Step5(Step5Message::Enter));
+                Step4(Step4Message::Done(installer)) => {
+                    s.send(Step5(Step5Message::Enter(installer)));
                 }
                 Step4(msg) => {
                     let d = self.get_step_mut::<Step4Tab>();
                     d.handle_message(msg);
                 }
                 //
-                Step5(Step5Message::Enter) => {
+                Step5(Step5Message::Enter(installer)) => {
                     self.set_step(4);
-                    // let step: &mut Step5Tab = self.get_step_mut::<Step5Tab>();
-                    // d.handle_message(msg);
+                    let step: &mut Step5Tab = self.get_step_mut::<Step5Tab>();
+                    step.start(installer);
                 }
-                // Step5(msg) => {
-                //     let step = self.get_step_mut::<Step5Tab>();
-                //     step.handle_message(msg);
-                // }
+                Step5(msg @ _) => {
+                    let step = self.get_step_mut::<Step5Tab>();
+                    step.handle_message(msg);
+                }
                 Quit => {
                     super::dialog::confirm_quit_dialog(&self.main_win);
                 }

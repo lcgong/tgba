@@ -11,8 +11,8 @@ use super::link::{parse_link_from_url, PackageLink};
 use crate::pyenv::checksum;
 use crate::pyenv::utils::canonicalize_name;
 
-use super::config::PyPIMirror;
 use super::super::status::StatusUpdate;
+use super::config::PyPIMirror;
 
 pub struct ProjectIndex {
     pypi: PyPIMirror,
@@ -50,7 +50,7 @@ impl ProjectIndex {
 
 pub async fn download_requirement(
     installer: &Installer,
-    status_updater: &impl StatusUpdate,
+    collector: &impl StatusUpdate,
     pypi: &PyPIMirror,
     requirement: &Requirement,
 ) -> Result<()> {
@@ -88,11 +88,14 @@ pub async fn download_requirement(
     let cached_filename = &installer.cached_packages_dir.join(link.file_name());
 
     if is_cached_file_available(link, cached_filename)? {
-        installer.log(format!("程序包{}本地已缓存，无需下载", cached_filename.display()).as_str());
+        collector.log_debug(format!(
+            "程序包{}本地已缓存，无需下载",
+            cached_filename.display()
+        ));
         return Ok(());
     }
 
-    download_link(installer, status_updater, pypi, link, cached_filename).await?;
+    download_link(installer, collector, pypi, link, cached_filename).await?;
 
     Ok(())
 }

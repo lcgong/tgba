@@ -87,13 +87,6 @@ impl Installer {
         &self.tgba_dir
     }
 
-    pub fn log(&self, msg: &str) {
-        println!("{}", msg);
-    }
-
-    pub fn log_error(&self, msg: &str) {
-        println!("{}", msg);
-    }
 
     pub fn pypi_mirrors(&self) -> &[PyPIMirror] {
         &self.pypi_mirrors

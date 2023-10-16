@@ -11,6 +11,7 @@ use fltk::{
     prelude::{GroupExt, InputExt, WidgetBase, WidgetExt},
 };
 
+use super::super::myapp::InstallerLogs;
 use super::super::{myapp::Message, style::AppStyle};
 
 use fltk::input::Input;
@@ -23,17 +24,22 @@ pub enum Step1Message {
 }
 
 pub struct Step1Tab {
-    a_no: usize,
     panel: Flex,
     target_dir_input: Input,
     start_btn: Button,
     sender: Sender<Message>,
+    logs: InstallerLogs,
 }
 
 impl Step1Tab {
     const DEFAUL_TARGET_DIR: &str = r#"C:\tgba"#;
 
-    pub fn new(group: &mut Group, style: &AppStyle, sender: Sender<Message>) -> Self {
+    pub fn new(
+        logs: InstallerLogs,
+        group: &mut Group,
+        style: &AppStyle,
+        sender: Sender<Message>,
+    ) -> Self {
         let mut panel = Flex::default_fill().column();
 
         panel.resize(group.x(), group.y(), group.w(), group.h());
@@ -113,7 +119,7 @@ impl Step1Tab {
         panel.end();
 
         let mut obj = Step1Tab {
-            a_no: 0,
+            logs,
             panel,
             start_btn,
             target_dir_input,
@@ -172,7 +178,7 @@ impl Step1Tab {
     }
 
     pub fn handle_message(&mut self, msg: Step1Message) {
-        println!("handle: {} msg: {:?}", self.a_no, msg);
+        // println!("handle: {} msg: {:?}", self.a_no, msg);
     }
 }
 

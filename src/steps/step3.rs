@@ -7,12 +7,12 @@ use fltk::{
     prelude::{GroupExt, WidgetBase, WidgetExt},
 };
 
-use crate::pyenv::Installer;
-
+use super::super::myapp::{InstallerLogRecord, InstallerLogs};
 use super::super::status::LoadingSpinner;
 use super::super::status::{DownloadingStats, StatusUpdate};
 use super::super::{myapp::Message, style::AppStyle};
 use super::utils::format_scale;
+use crate::pyenv::Installer;
 
 #[derive(Debug)]
 pub enum Step3Message {
@@ -28,8 +28,7 @@ pub enum Step3Message {
         percentage: f64,
         speed: f64,
     },
-    // Update,
-    Done,
+    Done(Installer),
 }
 
 pub struct Step3Tab {
@@ -44,13 +43,19 @@ pub struct Step3Tab {
     downloading_speed: Frame,
     downloading_progress: Progress,
     job_spinner: LoadingSpinner,
+    logs: InstallerLogs,
 }
 
 static GREY_COLOR: Color = Color::from_rgb(200, 200, 200);
 static MESSAGE_COLOR: Color = Color::from_rgb(10, 10, 10);
 
 impl Step3Tab {
-    pub fn new(group: &mut Group, style: &AppStyle, sender: Sender<Message>) -> Self {
+    pub fn new(
+        logs: InstallerLogs,
+        group: &mut Group,
+        style: &AppStyle,
+        sender: Sender<Message>,
+    ) -> Self {
         let mut panel = Flex::default_fill().column();
         panel.resize(group.x(), group.y(), group.w(), group.h());
         group.add(&panel);
@@ -162,6 +167,7 @@ impl Step3Tab {
 
         Step3Tab {
             installer: None,
+            logs,
             panel,
             sender,
             job_spinner,
@@ -180,21 +186,15 @@ impl Step3Tab {
 
     pub fn start(&mut self, installer: Installer) {
         let handle = tokio::runtime::Handle::current();
-        let sender = self.sender.clone();
+        let collector = Step4Collector::new(self.logs.clone(), self.sender.clone());
+
         std::thread::spawn(move || {
             // 在新线程内运行异步代码
-            handle.block_on(run(installer, sender));
-            println!("step - work thread finished");
+            handle.block_on(run(installer, collector));
         });
     }
 
-    pub fn take_installer(&mut self) -> Installer {
-        self.installer.take().unwrap()
-    }
-
     pub fn handle_message(&mut self, msg: Step3Message) {
-        // println!("handle: {}", self.c_no);
-
         match msg {
             Step3Message::JobStart => {
                 self.job_spinner.start();
@@ -227,9 +227,6 @@ impl Step3Tab {
                 self.downloading_speed.set_label(&format!("{speed}/s"));
                 self.downloading_progress.set_value(percentage);
             }
-            Step3Message::Done => {
-                //
-            }
             _ => {
                 unimplemented!()
             }
@@ -237,38 +234,48 @@ impl Step3Tab {
     }
 }
 
-pub struct StatusUpdater {
+pub struct Step4Collector {
     sender: Sender<Message>,
+    logs: InstallerLogs,
 }
 
-impl StatusUpdater {
-    pub fn new(sender: Sender<Message>) -> Self {
-        StatusUpdater { sender }
+impl Step4Collector {
+    pub fn new(logs: InstallerLogs, sender: Sender<Message>) -> Self {
+        Step4Collector { logs, sender }
     }
 
-    pub fn done(&mut self) {
-        self.sender.send(Message::Step3(Step3Message::Done));
+    pub fn done(&mut self, installer: Installer) {
+        self.send(Step3Message::Done(installer));
     }
 
     pub fn job_start(&mut self) {
-        self.sender.send(Message::Step3(Step3Message::JobStart));
+        self.send(Step3Message::JobStart);
     }
 
     pub fn job_success(&mut self) {
-        self.sender.send(Message::Step3(Step3Message::JobSuccess));
+        self.send(Step3Message::JobSuccess);
     }
 
     pub fn job_error(&mut self, err: String) {
-        self.sender
-            .send(Message::Step3(Step3Message::JobError(err)));
+        self.send(Step3Message::JobError(err));
     }
 
     fn send(&self, msg: Step3Message) {
         self.sender.send(Message::Step3(msg));
     }
+
+    fn write(&self, record: InstallerLogRecord) {
+        if let Ok(mut records) = self.logs.lock() {
+            records.push(record);
+        } else {
+            fltk::app::awake_callback(move || {
+                fltk::dialog::alert_default("无法获取日志锁");
+            });
+        }
+    }
 }
 
-impl StatusUpdate for StatusUpdater {
+impl StatusUpdate for Step4Collector {
     fn alert(&self, err: &str) {
         println!("ERROR: {err}");
     }
@@ -289,26 +296,34 @@ impl StatusUpdate for StatusUpdater {
             speed: status.speed(),
         });
     }
+
+    fn log_debug(&self, msg: String) {
+        println!("{}", msg);
+        self.write(InstallerLogRecord::Debug(msg));
+    }
+
+    fn log_error(&self, msg: String) {
+        eprintln!("{}", msg);
+        self.write(InstallerLogRecord::Error(msg));
+    }
 }
 
-pub async fn run(mut installer: Installer, sender: Sender<Message>) {
-    use super::super::pyenv::{install_requirements, set_platform_info};
+pub async fn run(mut installer: Installer, mut collector: Step4Collector) {
+    use super::super::pyenv::{download_requirements, set_platform_info};
 
-    let mut updater = StatusUpdater::new(sender);
+    collector.job_start();
 
-    updater.job_start();
-
-    if let Err(err) = set_platform_info(&mut installer) {
-        updater.job_error(format!("获取系统平台信息中发生错误: {err}"));
+    if let Err(err) = set_platform_info(&mut installer, &collector) {
+        collector.job_error(format!("获取系统平台信息中发生错误: {err}"));
         return;
     }
 
-    if let Err(err) = install_requirements(&installer, &updater).await {
-        updater.job_error(format!("下载安装软件包中发生错误: {err}"));
+    if let Err(err) = download_requirements(&installer, &collector).await {
+        collector.job_error(format!("下载安装软件包中发生错误: {err}"));
         return;
     }
 
-    updater.job_success();
+    collector.job_success();
 
-    // updater.done();
+    collector.done(installer);
 }

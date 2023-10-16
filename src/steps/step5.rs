@@ -1,26 +1,38 @@
 use fltk::{
     app::Sender,
-    // button::Button,
+    button::Button,
     enums::Align,
     frame::Frame,
     group::{Flex, Group},
-    prelude::{GroupExt, WidgetBase, WidgetExt}, button::Button,
+    prelude::{GroupExt, WidgetBase, WidgetExt},
 };
 
-use super::super::{myapp::Message, style::AppStyle};
+use super::super::{
+    myapp::{InstallerLogs, Message},
+    pyenv::Installer,
+    style::AppStyle,
+};
 
 #[derive(Debug)]
 pub enum Step5Message {
-    Enter,
+    Enter(Installer),
+    Done,
 }
 
 pub struct Step5Tab {
     panel: Flex,
-    sender: Sender<Message>,
+    installer: Option<Installer>,
+    _logs: InstallerLogs,
+    _sender: Sender<Message>,
 }
 
 impl Step5Tab {
-    pub fn new(group: &mut Group, _style: &AppStyle, sender: Sender<Message>) -> Self {
+    pub fn new(
+        logs: InstallerLogs,
+        group: &mut Group,
+        _style: &AppStyle,
+        sender: Sender<Message>,
+    ) -> Self {
         let mut panel = Flex::default_fill().column();
 
         panel.resize(group.x(), group.y(), group.w(), group.h());
@@ -52,18 +64,15 @@ impl Step5Tab {
             fltk::app::quit();
         });
 
-        // let frame = Frame::default();
-        // panel.fixed(&frame, 30);
-
         Frame::default();
 
         panel.end();
 
-
-
         Step5Tab {
             panel,
-            sender,
+            installer: None,
+            _sender: sender,
+            _logs: logs,
         }
     }
 
@@ -71,13 +80,22 @@ impl Step5Tab {
         &self.panel
     }
 
-    // pub fn handle_message(&mut self, msg: Step5Message) {
-    //     match msg {
-    //         Step5Message::Enter => {
-    //         }
-    //         msg @ _ => {
-    //             unimplemented!("{msg:?}")
-    //         }
-    //     }
-    // }
+    pub fn start(&mut self, installer: Installer) {
+        self.installer = Some(installer.clone());
+        // let collector = Step4Collector::new(self.logs.clone(), self.sender.clone());
+
+        // let handle = tokio::runtime::Handle::current();
+        // std::thread::spawn(move || {
+        //     // 在新线程内运行异步代码
+        //     handle.block_on(step5_run(installer, collector));
+        // });
+    }
+
+    pub fn handle_message(&mut self, msg: Step5Message) {
+        match msg {
+            msg @ _ => {
+                unimplemented!("{msg:?}")
+            }
+        }
+    }
 }

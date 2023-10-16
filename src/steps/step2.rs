@@ -8,18 +8,19 @@ use fltk::{
 };
 use std::path::PathBuf;
 
-use super::super::pyenv::Installer;
-use super::super::status::{DownloadingStats, StatusUpdate};
-use super::super::{myapp::Message, style::AppStyle};
-use super::super::status::LoadingSpinner;
-use super::utils::format_scale;
+use super::super::{
+    myapp::{InstallerLogRecord, InstallerLogs, Message},
+    pyenv::{ensure_python_dist, ensure_venv, Installer},
+    status::{DownloadingStats, LoadingSpinner, StatusUpdate},
+    steps::utils::format_scale,
+    style::AppStyle,
+};
 
 #[derive(Debug)]
 pub enum Step2Message {
     Enter {
         target_dir: String,
     },
-    Start,
     StartJob(usize),
     SuccessJob(usize),
     JobMessage(usize, String), // (job_idx, message)
@@ -30,7 +31,7 @@ pub enum Step2Message {
         percentage: f64,
         speed: f64,
     },
-    Done,
+    Done(Installer),
 }
 
 pub struct Step2Tab {
@@ -40,13 +41,19 @@ pub struct Step2Tab {
     job_spinners: Vec<LoadingSpinner>,
     job1_progress: Progress,
     installer: Option<Installer>,
+    logs: InstallerLogs,
 }
 
 static GREY_COLOR: Color = Color::from_rgb(200, 200, 200);
 static MESSAGE_COLOR: Color = Color::from_rgb(10, 10, 10);
 
 impl Step2Tab {
-    pub fn new(group: &mut Group, style: &AppStyle, sender: Sender<Message>) -> Self {
+    pub fn new(
+        logs: InstallerLogs,
+        group: &mut Group,
+        style: &AppStyle,
+        sender: Sender<Message>,
+    ) -> Self {
         let mut panel = Flex::default_fill().column();
 
         let job_title = ["下载安装Python", "创建Python虚拟环境"];
@@ -135,6 +142,7 @@ impl Step2Tab {
             job_messages,
             job1_progress,
             installer: None,
+            logs,
         }
     }
 
@@ -143,28 +151,25 @@ impl Step2Tab {
     }
 
     pub fn start(&mut self, target_dir: &str) {
+        let mut collector = StatusCollector::new(self.logs.clone(), self.sender.clone());
+
         let installer = match Installer::new(PathBuf::from(target_dir)) {
             Ok(installer) => installer,
             Err(err) => {
-                fltk::dialog::alert_default(&format!("初始化安装参数错误: {err}"));
+                collector.job_error(format!("初始化安装参数错误: {err}"));
                 return;
             }
         };
-        
+
         self.installer = Some(installer.clone());
 
         use tokio::runtime::Handle;
         let handle = Handle::current();
-        // let progress = self.progress_bar.clone();
-        // let message_label = self.message_label.clone();
-        // let installer = installer.clone();
-        let sender = self.sender.clone();
+
         std::thread::spawn(move || {
             // 在新线程内运行异步代码
-            handle.block_on(run(installer, sender));
-            println!("step - work thread finished");
+            handle.block_on(step_run(installer, collector));
         });
-
     }
 
     pub fn handle_message(&mut self, msg: Step2Message) {
@@ -204,50 +209,59 @@ impl Step2Tab {
             }
         }
     }
-
-
-    pub fn take_installer(&mut self) -> Installer {
-        self.installer.take().unwrap()
-    }
 }
 
-pub struct StatusUpdater {
+pub struct StatusCollector {
     job_idx: usize,
     sender: Sender<Message>,
+    logs: InstallerLogs,
 }
 
-impl StatusUpdater {
-    pub fn new(sender: Sender<Message>) -> Self {
-        StatusUpdater { job_idx: 0, sender }
+impl StatusCollector {
+    pub fn new(logs: InstallerLogs, sender: Sender<Message>) -> Self {
+        StatusCollector {
+            job_idx: 0,
+            logs,
+            sender,
+        }
     }
-}
 
-impl StatusUpdater {
     pub fn next_job(&mut self) {
         self.job_idx += 1;
     }
 
-    pub fn start_job(&mut self) {
-        self.sender
-            .send(Message::Step2(Step2Message::StartJob(self.job_idx)));
+    pub fn job_start(&mut self) {
+        self.send(Step2Message::StartJob(self.job_idx));
     }
 
-    pub fn success_job(&mut self) {
-        self.sender
-            .send(Message::Step2(Step2Message::SuccessJob(self.job_idx)));
+    pub fn job_success(&mut self) {
+        self.send(Step2Message::SuccessJob(self.job_idx));
     }
 
-    pub fn error_job(&mut self, err: String) {
-        self.sender
-            .send(Message::Step2(Step2Message::ErrorJob(self.job_idx, err)));
+    pub fn job_error(&mut self, err: String) {
+        self.send(Step2Message::ErrorJob(self.job_idx, err));
     }
 
-    pub fn done(&mut self) {
-        self.sender.send(Message::Step2(Step2Message::Done));
+    pub fn done(&mut self, installer: Installer) {
+        self.send(Step2Message::Done(installer));
+    }
+
+    fn send(&self, msg: Step2Message) {
+        self.sender.send(Message::Step2(msg));
+    }
+
+    fn write(&self, record: InstallerLogRecord) {
+        if let Ok(mut records) = self.logs.lock() {
+            records.push(record);
+        } else {
+            fltk::app::awake_callback(move || {
+                fltk::dialog::alert_default("无法获取日志锁");
+            });
+        }
     }
 }
 
-impl StatusUpdate for StatusUpdater {
+impl StatusUpdate for StatusCollector {
     fn alert(&self, err: &str) {
         let errmsg = err.to_string();
         let job_idx = self.job_idx;
@@ -261,18 +275,10 @@ impl StatusUpdate for StatusUpdater {
     }
 
     fn message(&self, msg: &str) {
-        let msg = msg.to_string();
-        let job_idx = self.job_idx;
-        let sender = self.sender.clone();
-        // fltk::app::awake_callback(move || {
-        sender.send(Message::Step2(Step2Message::JobMessage(
-            job_idx,
-            msg.clone(),
-        )));
-        // });
+        self.send(Step2Message::JobMessage(self.job_idx, msg.to_string()));
     }
 
-    fn update_progress(&self, num: u32, max_num: u32) {
+    fn update_progress(&self, _num: u32, _max_num: u32) {
         unimplemented!();
     }
 
@@ -296,39 +302,38 @@ impl StatusUpdate for StatusUpdater {
             }));
         });
     }
+
+    fn log_debug(&self, msg: String) {
+        println!("{}", msg);
+        self.write(InstallerLogRecord::Debug(msg));
+    }
+
+    fn log_error(&self, msg: String) {
+        eprintln!("{}", msg);
+        self.write(InstallerLogRecord::Error(msg));
+    }
 }
 
-
-pub async fn run(mut installer: Installer, sender: Sender<Message>) {
-    println!("started - step1");
-
-    use super::super::pyenv::venv::{ensure_python_dist, ensure_venv, set_platform_info};
-
-    let mut updater = StatusUpdater::new(sender);
-
-    updater.start_job();
-    if let Err(err) = ensure_python_dist(&mut installer, &updater).await {
-        updater.error_job(format!("下载安装CPython中发生错误: {err}"));
+pub async fn step_run(mut installer: Installer, mut collecter: StatusCollector) {
+    collecter.job_start();
+    if let Err(err) = ensure_python_dist(&mut installer, &collecter).await {
+        collecter.job_error(format!("下载安装CPython中发生错误: {err}"));
         return;
     };
     // tokio::time::sleep(tokio::time::Duration::from_millis(5000)).await;
 
-    updater.success_job();
+    collecter.job_success();
 
-    updater.next_job();
+    collecter.next_job();
 
-    updater.start_job();
+    collecter.job_start();
     // tokio::time::sleep(tokio::time::Duration::from_millis(5000)).await;
-    if let Err(err) = ensure_venv(&mut installer, &updater).await {
-        updater.error_job(format!("创建Python虚拟环境发生错误: {err}"));
+    if let Err(err) = ensure_venv(&mut installer, &collecter).await {
+        collecter.job_error(format!("创建Python虚拟环境发生错误: {err}"));
         return;
     };
 
-    if let Err(err) = set_platform_info(&mut installer) {
-        updater.error_job(format!("获取Python本地平台信息发生错误: {err}"));
-        return;
-    };
-    updater.success_job();
+    collecter.job_success();
 
-    updater.done();
+    collecter.done(installer);
 }

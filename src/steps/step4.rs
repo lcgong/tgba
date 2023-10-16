@@ -1,17 +1,17 @@
-use fltk::{
-    app::Sender,
-    enums::{Align, Color},
-    frame::Frame,
-    group::{Flex, Group},
-    prelude::{GroupExt, WidgetBase, WidgetExt},
-};
-
+use super::super::myapp::{InstallerLogRecord, InstallerLogs};
 use super::super::{
     myapp::Message,
     pyenv::Installer,
     status::LoadingSpinner,
     status::{DownloadingStats, StatusUpdate},
     style::AppStyle,
+};
+use fltk::{
+    app::Sender,
+    enums::{Align, Color},
+    frame::Frame,
+    group::{Flex, Group},
+    prelude::{GroupExt, WidgetBase, WidgetExt},
 };
 
 #[derive(Debug)]
@@ -21,7 +21,7 @@ pub enum Step4Message {
     JobSuccess(usize),         // (job_idx)
     JobMessage(usize, String), // (job_idx, message)
     JobError(usize, String),   // (job_idx, errmsg)
-    Done,
+    Done(Installer),
 }
 
 pub struct Step4Tab {
@@ -30,6 +30,7 @@ pub struct Step4Tab {
     job_messages: Vec<Frame>,
     job_spinners: Vec<LoadingSpinner>,
     installer: Option<Installer>,
+    logs: InstallerLogs,
 }
 
 static GREY_COLOR: Color = Color::from_rgb(200, 200, 200);
@@ -68,7 +69,12 @@ fn render_job_status(
 }
 
 impl Step4Tab {
-    pub fn new(group: &mut Group, _style: &AppStyle, sender: Sender<Message>) -> Self {
+    pub fn new(
+        logs: InstallerLogs,
+        group: &mut Group,
+        _style: &AppStyle,
+        sender: Sender<Message>,
+    ) -> Self {
         let mut panel = Flex::default_fill().column();
 
         panel.resize(group.x(), group.y(), group.w(), group.h());
@@ -111,6 +117,7 @@ impl Step4Tab {
         panel.end();
 
         Step4Tab {
+            logs,
             panel,
             sender,
             job_spinners,
@@ -125,12 +132,13 @@ impl Step4Tab {
 
     pub fn start(&mut self, installer: Installer) {
         self.installer = Some(installer.clone());
+        let collector = Step4Collector::new(self.logs.clone(), self.sender.clone());
 
         let handle = tokio::runtime::Handle::current();
-        let sender = self.sender.clone();
+
         std::thread::spawn(move || {
             // 在新线程内运行异步代码
-            handle.block_on(run(installer, sender));
+            handle.block_on(step4_run(installer, collector));
         });
     }
 
@@ -163,18 +171,23 @@ impl Step4Tab {
     }
 }
 
-pub struct StatusUpdater {
+pub struct Step4Collector {
     job_idx: usize,
     sender: Sender<Message>,
+    logs: InstallerLogs,
 }
 
-impl StatusUpdater {
-    pub fn new(sender: Sender<Message>) -> Self {
-        StatusUpdater { job_idx: 0, sender }
+impl Step4Collector {
+    pub fn new(logs: InstallerLogs, sender: Sender<Message>) -> Self {
+        Step4Collector {
+            job_idx: 0,
+            sender,
+            logs,
+        }
     }
 }
 
-impl StatusUpdater {
+impl Step4Collector {
     pub fn next_job(&mut self) {
         self.job_idx += 1;
     }
@@ -191,16 +204,26 @@ impl StatusUpdater {
         self.send(Step4Message::JobError(self.job_idx, err));
     }
 
-    pub fn done(&mut self) {
-        self.send(Step4Message::Done);
+    pub fn done(&mut self, installer: Installer) {
+        self.send(Step4Message::Done(installer));
     }
 
     fn send(&self, msg: Step4Message) {
         self.sender.send(Message::Step4(msg));
     }
+
+    fn write(&self, record: InstallerLogRecord) {
+        if let Ok(mut records) = self.logs.lock() {
+            records.push(record);
+        } else {
+            fltk::app::awake_callback(move || {
+                fltk::dialog::alert_default("无法获取日志锁");
+            });
+        }
+    }
 }
 
-impl StatusUpdate for StatusUpdater {
+impl StatusUpdate for Step4Collector {
     fn alert(&self, err: &str) {
         println!("Error: {err}");
     }
@@ -216,45 +239,56 @@ impl StatusUpdate for StatusUpdater {
     fn update_downloading(&self, _status: &DownloadingStats) {
         unimplemented!()
     }
+
+    fn log_debug(&self, msg: String) {
+        println!("{}", msg);
+        self.write(InstallerLogRecord::Debug(msg));
+    }
+
+    fn log_error(&self, msg: String) {
+        eprintln!("{}", msg);
+        self.write(InstallerLogRecord::Error(msg));
+    }
 }
 
-pub async fn run(mut installer: Installer, sender: Sender<Message>) {
-    use super::super::pyenv::{create_winlnk, fix_patches, set_platform_info, offline_install_requirements};
-    let mut updater = StatusUpdater::new(sender);
+pub async fn step4_run(mut installer: Installer, mut collector: Step4Collector) {
+    use super::super::pyenv::{
+        create_winlnk, fix_patches, offline_install_requirements, set_platform_info,
+    };
 
     if installer.platform_tag.is_none() {
-        if let Err(err) = set_platform_info(&mut installer) {
-            updater.job_error(format!("获取系统平台信息发生错误: {err}"));
+        if let Err(err) = set_platform_info(&mut installer, &collector) {
+            collector.job_error(format!("获取系统平台信息发生错误: {err}"));
             return;
         }
     }
-    
-    updater.job_start();
-    if let Err(err) = offline_install_requirements(&installer, &updater).await {
-        updater.job_error(format!("本地安装程序包发生错误: {err}"));
+
+    collector.job_start();
+    if let Err(err) = offline_install_requirements(&installer, &collector).await {
+        collector.job_error(format!("本地安装程序包发生错误: {err}"));
         return;
     };
     // tokio::time::sleep(tokio::time::Duration::from_millis(5000)).await;
-    updater.job_success();
+    collector.job_success();
 
     //------------------------------------------------------------------------
-    updater.next_job();
-    updater.job_start();
+    collector.next_job();
+    collector.job_start();
     // tokio::time::sleep(tokio::time::Duration::from_millis(5000)).await;
     if let Err(err) = create_winlnk(&installer, &installer.target_dir()) {
-        updater.job_error(format!("创建快捷方式发生错误: {err}"));
+        collector.job_error(format!("创建快捷方式发生错误: {err}"));
         return;
     };
-    updater.job_success();
+    collector.job_success();
 
     // ----------------------------------------------------------------------
-    updater.next_job();
-    updater.job_start();
+    collector.next_job();
+    collector.job_start();
     if let Err(err) = fix_patches(&installer) {
-        updater.job_error(format!("修正配置发生错误: {err}"));
+        collector.job_error(format!("修正配置发生错误: {err}"));
         return;
     };
-    updater.job_success();
+    collector.job_success();
 
-    updater.done();
+    collector.done(installer);
 }

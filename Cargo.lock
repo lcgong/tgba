@@ -1565,6 +1565,7 @@ version = "0.2.0"
 dependencies = [
  "anyhow",
  "bzip2",
+ "encoding_rs",
  "flate2",
  "fltk",
  "hex",

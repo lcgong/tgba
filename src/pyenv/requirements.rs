@@ -5,9 +5,9 @@ use std::{fs::File, path::PathBuf};
 use super::super::status::StatusUpdate;
 use super::installer::Installer;
 
-pub async fn install_requirements(
+pub async fn download_requirements(
     installer: &Installer,
-    status_updater: &impl StatusUpdate,
+    collector: &impl StatusUpdate,
 ) -> Result<()> {
     let cached_packages_dir = &installer.cached_packages_dir;
     if let Err(_err) = std::fs::create_dir_all(cached_packages_dir) {
@@ -20,77 +20,102 @@ pub async fn install_requirements(
 
     let requirements_path = &get_requirements_path(installer).await?;
 
+    collector.log_debug(format!("程序包需求文件: {}", requirements_path.display()));
+    collector.log_debug(format!(
+        "程序包下载临时目录: {}",
+        cached_packages_dir.display()
+    ));
+
     let mut requirements = extract_requirements(requirements_path).await?;
     requirements.append(&mut get_obligated_requirements(installer)?);
 
-    let pypi_mirrors = installer.pypi_mirrors();
-
     let n_downloads = requirements.len();
 
-    use super::project::download_requirement;
     for (idx, requirement) in requirements.iter().enumerate() {
-        let mut success = false;
+        retry_download_requirement(installer, collector, requirement).await?;
 
-        for pypi in pypi_mirrors {
-            match download_requirement(installer, status_updater, &pypi, requirement).await {
-                Ok(_) => {
-                    success = true;
-                    break;
-                }
-                Err(err) => {
-                    status_updater
-                        .alert(format!("下载{}出现错误: {}", requirement.name, err).as_str());
-                }
-            };
-        }
-
-        if !success {
-            bail!("需求{}无PYPI镜像可用", requirement.name)
-        }
-
-        status_updater.update_progress(idx as u32 + 1, n_downloads as u32);
+        collector.update_progress(idx as u32 + 1, n_downloads as u32);
     }
-
-    // offline_install_requirements(installer, requirements_path, cached_packages_dir)?;
 
     Ok(())
 }
 
+async fn retry_download_requirement(
+    installer: &Installer,
+    collector: &impl StatusUpdate,
+    requirement: &Requirement,
+) -> Result<()> {
+    use super::project::download_requirement;
+    for pypi in installer.pypi_mirrors() {
+        match download_requirement(installer, collector, &pypi, requirement).await {
+            Ok(_) => {
+                return Ok(());
+            }
+            Err(err) => {
+                collector.log_error(format!(
+                    "从{}下载{}中发生错误: {}",
+                    pypi.name(),
+                    requirement.name,
+                    err
+                ));
+            }
+        };
+    }
+
+    let mirrors = installer
+        .pypi_mirrors()
+        .iter()
+        .map(|m| m.name())
+        .collect::<Vec<&str>>()
+        .join(",");
+
+    bail!(
+        "在现有PYPI镜像({})中没有发现需求{}所对应可用的程序包",
+        mirrors,
+        requirement.name
+    )
+}
+
 pub async fn offline_install_requirements(
     installer: &Installer,
-    status_updater: &impl StatusUpdate,
+    collector: &impl StatusUpdate,
 ) -> Result<()> {
     use super::venv::venv_python_cmd;
 
-    let requirements_path = &get_requirements_path(installer).await?;
-    let cached_packages_dir = &installer.cached_packages_dir;
+    let requirements_path = get_requirements_path(installer)
+        .await?
+        .to_string_lossy()
+        .to_string();
+    let cached_packages_dir = installer.cached_packages_dir.to_string_lossy().to_string();
 
-    let output = match venv_python_cmd(
-        installer,
-        &vec![
-            "-m",
-            "pip",
-            "install",
-            "--no-index",
-            "--find-links",
-            &cached_packages_dir.to_string_lossy(),
-            "-r",
-            &requirements_path.to_string_lossy(),
-        ],
-    ) {
-        Ok(output) => output,
-        Err(err) => {
-            bail!("调用python执行pip出现错误: {}", err)
+    let args = &vec![
+        "-m",
+        "pip",
+        "install",
+        "--no-index",
+        "--find-links",
+        &cached_packages_dir,
+        "-r",
+        &requirements_path,
+    ];
+
+    collector.log_debug(format!(
+        "从{}目录中安装程序包: {}",
+        cached_packages_dir, requirements_path
+    ));
+
+    let err = match venv_python_cmd(installer, collector, args) {
+        Ok(output) => {
+            if output.status.success() {
+                return Ok(());
+            }
+
+            String::from_utf8_lossy(&output.stderr).to_string()
         }
+        Err(err) => err.to_string(),
     };
 
-    let status = output.status;
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    println!("STATUS:{}\n{}\nSTDERR:\n{}", status, stdout, stderr);
-
-    Ok(())
+    bail!("程序包本地安装发生错误: {}", err)
 }
 
 use super::super::resources::RESOURCES;

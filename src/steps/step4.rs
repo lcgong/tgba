@@ -232,10 +232,6 @@ impl StatusUpdate for Step4Collector {
         self.send(Step4Message::JobMessage(self.job_idx, msg.to_string()));
     }
 
-    fn update_progress(&self, _num: u32, _max_num: u32) {
-        unimplemented!()
-    }
-
     fn update_downloading(&self, _status: &DownloadingStats) {
         unimplemented!()
     }

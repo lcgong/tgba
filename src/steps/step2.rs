@@ -278,10 +278,6 @@ impl StatusUpdate for StatusCollector {
         self.send(Step2Message::JobMessage(self.job_idx, msg.to_string()));
     }
 
-    fn update_progress(&self, _num: u32, _max_num: u32) {
-        unimplemented!();
-    }
-
     fn update_downloading(&self, status: &DownloadingStats) {
         if self.job_idx != 0 {
             return;

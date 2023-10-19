@@ -17,7 +17,9 @@ pub use link::PackageLink;
 pub use project::ProjectIndex;
 
 pub use archive::{checksum, unpack_archive};
-pub use requirements::{download_requirements, offline_install_requirements};
+pub use requirements::{
+    offline_install_requirements, prepare_requirements, retry_download_requirement,
+};
 pub use venv::{ensure_python_dist, ensure_venv, set_platform_info};
 
 pub use scriptfixs::fix_patches;

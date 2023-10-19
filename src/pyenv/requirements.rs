@@ -5,10 +5,10 @@ use std::{fs::File, path::PathBuf};
 use super::super::status::StatusUpdate;
 use super::installer::Installer;
 
-pub async fn download_requirements(
+pub async fn prepare_requirements(
     installer: &Installer,
     collector: &impl StatusUpdate,
-) -> Result<()> {
+) -> Result<Vec<Requirement>> {
     let cached_packages_dir = &installer.cached_packages_dir;
     if let Err(_err) = std::fs::create_dir_all(cached_packages_dir) {
         bail!(
@@ -29,18 +29,25 @@ pub async fn download_requirements(
     let mut requirements = extract_requirements(requirements_path).await?;
     requirements.append(&mut get_obligated_requirements(installer)?);
 
-    let n_downloads = requirements.len();
-
-    for (idx, requirement) in requirements.iter().enumerate() {
-        retry_download_requirement(installer, collector, requirement).await?;
-
-        collector.update_progress(idx as u32 + 1, n_downloads as u32);
-    }
-
-    Ok(())
+    Ok(requirements)
 }
 
-async fn retry_download_requirement(
+// pub async fn download_requirements(
+//     installer: &Installer,
+//     collector: &impl StatusUpdate,
+// ) -> Result<()> {
+//     let n_downloads = requirements.len();
+
+//     for (idx, requirement) in requirements.iter().enumerate() {
+//         retry_download_requirement(installer, collector, requirement).await?;
+
+//         collector.update_progress(idx as u32 + 1, n_downloads as u32);
+//     }
+
+//     Ok(())
+// }
+
+pub async fn retry_download_requirement(
     installer: &Installer,
     collector: &impl StatusUpdate,
     requirement: &Requirement,

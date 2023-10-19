@@ -14,13 +14,15 @@ use super::super::{myapp::Message, style::AppStyle};
 use super::utils::format_scale;
 use crate::pyenv::Installer;
 
+use pep508_rs::Requirement;
+
 #[derive(Debug)]
 pub enum Step3Message {
     Enter(Installer),
-    JobStart,
-    JobSuccess,
+    // JobStart,
+    // JobSuccess,
     JobMessage(String),
-    JobProgress(u32, u32),
+    // JobProgress(u32, u32),
     JobError(String),
     Downloading {
         title: String,
@@ -28,12 +30,15 @@ pub enum Step3Message {
         percentage: f64,
         speed: f64,
     },
+    DownloadingStart(Installer, Vec<Requirement>, usize),
+    DownloadingError(Installer, Vec<Requirement>, usize, String),
+    DownloadingDone(Installer, Vec<Requirement>, usize),
     Done(Installer),
 }
 
 pub struct Step3Tab {
     // c_no: usize,
-    installer: Option<Installer>,
+    // installer: Option<Installer>,
     panel: Flex,
     sender: Sender<Message>,
     job_progress: Progress,
@@ -166,7 +171,7 @@ impl Step3Tab {
         panel.end();
 
         Step3Tab {
-            installer: None,
+            // installer: None,
             logs,
             panel,
             sender,
@@ -188,29 +193,108 @@ impl Step3Tab {
         let handle = tokio::runtime::Handle::current();
         let collector = Step4Collector::new(self.logs.clone(), self.sender.clone());
 
+        self.job_spinner.start();
+
         std::thread::spawn(move || {
             // 在新线程内运行异步代码
-            handle.block_on(run(installer, collector));
+            handle.block_on(prepare_downloading(installer, collector));
         });
+    }
+
+    pub fn on_downloading_start(
+        &mut self,
+        installer: Installer,
+        requirements: Vec<Requirement>,
+        requirement_idx: usize,
+    ) {
+        let handle = tokio::runtime::Handle::current();
+        let collector = Step4Collector::new(self.logs.clone(), self.sender.clone());
+
+        std::thread::spawn(move || {
+            // 在新线程内运行异步代码
+            handle.block_on(download_worker(
+                installer,
+                collector,
+                requirements,
+                requirement_idx,
+            ));
+        });
+    }
+
+    fn on_downloading_done(
+        &mut self,
+        installer: Installer,
+        requirements: Vec<Requirement>,
+        requirement_idx: usize,
+    ) {
+        let n_requirement = requirements.len();
+        let next_idx = requirement_idx + 1;
+
+        {
+            // 显示进度比例
+            let percent = next_idx as f64 / n_requirement as f64 * 100.0;
+
+            self.job_percent
+                .set_label(&format!("{next_idx}/{n_requirement}"));
+            self.job_progress.set_value(percent);
+            self.job_progress.redraw();
+        }
+
+        if next_idx < n_requirement {
+            self.sender
+                .send(Message::Step3(Step3Message::DownloadingStart(
+                    installer,
+                    requirements,
+                    requirement_idx + 1,
+                )));
+        } else {
+            self.job_spinner.success(); // 最后一个下载结束
+
+            self.sender
+                .send(Message::Step3(Step3Message::Done(installer)));
+        }
+    }
+
+    fn on_downloading_error(
+        &self,
+        installer: Installer,
+        requirements: Vec<Requirement>,
+        requirement_idx: usize,
+        errmsg: String,
+    ) {
+        unimplemented!()
+    }
+
+    fn on_downloading_status(
+        &mut self,
+        title: String,
+        total_size: u64,
+        percentage: f64,
+        speed: f64,
+    ) {
+        let total_size = format_scale(total_size as f64, 1);
+        let speed = format_scale(speed as f64, 2);
+
+        let msg = format!("{title}, {total_size}");
+        self.downloading_message.set_label(&msg);
+        self.downloading_message.set_label_color(MESSAGE_COLOR);
+        self.downloading_speed.set_label(&format!("{speed}/s"));
+        self.downloading_progress.set_value(percentage);
     }
 
     pub fn handle_message(&mut self, msg: Step3Message) {
         match msg {
-            Step3Message::JobStart => {
-                self.job_spinner.start();
-            }
-            Step3Message::JobSuccess => {
-                self.job_spinner.success();
-            }
-            Step3Message::JobProgress(num, max_num) => {
-                let percent = num as f64 / max_num as f64 * 100.0;
-
-                self.job_percent.set_label(&format!("{num}/{max_num}"));
-                self.job_progress.set_value(percent);
-                self.job_progress.redraw();
-            }
             Step3Message::JobMessage(msg) => {
                 self.job_message.set_label(&msg);
+            }
+            Step3Message::DownloadingStart(installer, requirements, requirement_idx) => {
+                self.on_downloading_start(installer, requirements, requirement_idx)
+            }
+            Step3Message::DownloadingDone(installer, requirements, requirement_idx) => {
+                self.on_downloading_done(installer, requirements, requirement_idx)
+            }
+            Step3Message::DownloadingError(installer, requirements, requirement_idx, errmsg) => {
+                self.on_downloading_error(installer, requirements, requirement_idx, errmsg)
             }
             Step3Message::Downloading {
                 title,
@@ -218,14 +302,7 @@ impl Step3Tab {
                 percentage,
                 speed,
             } => {
-                let total_size = format_scale(total_size as f64, 1);
-                let speed = format_scale(speed as f64, 2);
-
-                let msg = format!("{title}, {total_size}");
-                self.downloading_message.set_label(&msg);
-                self.downloading_message.set_label_color(MESSAGE_COLOR);
-                self.downloading_speed.set_label(&format!("{speed}/s"));
-                self.downloading_progress.set_value(percentage);
+                self.on_downloading_status(title, total_size, percentage, speed);
             }
             _ => {
                 unimplemented!()
@@ -244,20 +321,12 @@ impl Step4Collector {
         Step4Collector { logs, sender }
     }
 
-    pub fn done(&mut self, installer: Installer) {
-        self.send(Step3Message::Done(installer));
-    }
-
-    pub fn job_start(&mut self) {
-        self.send(Step3Message::JobStart);
-    }
-
-    pub fn job_success(&mut self) {
-        self.send(Step3Message::JobSuccess);
-    }
-
     pub fn job_error(&mut self, err: String) {
         self.send(Step3Message::JobError(err));
+    }
+
+    fn start_downloading(&self, installer: Installer, requirements: Vec<Requirement>, idx: usize) {
+        self.send(Step3Message::DownloadingStart(installer, requirements, idx));
     }
 
     fn send(&self, msg: Step3Message) {
@@ -284,10 +353,6 @@ impl StatusUpdate for Step4Collector {
         self.send(Step3Message::JobMessage(msg.to_string()));
     }
 
-    fn update_progress(&self, num: u32, max_num: u32) {
-        self.send(Step3Message::JobProgress(num, max_num));
-    }
-
     fn update_downloading(&self, status: &DownloadingStats) {
         self.send(Step3Message::Downloading {
             title: status.title().to_string(),
@@ -308,22 +373,49 @@ impl StatusUpdate for Step4Collector {
     }
 }
 
-pub async fn run(mut installer: Installer, mut collector: Step4Collector) {
-    use super::super::pyenv::{download_requirements, set_platform_info};
-
-    collector.job_start();
+pub async fn prepare_downloading(mut installer: Installer, mut collector: Step4Collector) {
+    use super::super::pyenv::{prepare_requirements, set_platform_info};
 
     if let Err(err) = set_platform_info(&mut installer, &collector) {
         collector.job_error(format!("获取系统平台信息中发生错误: {err}"));
         return;
     }
 
-    if let Err(err) = download_requirements(&installer, &collector).await {
-        collector.job_error(format!("下载安装软件包中发生错误: {err}"));
+    let requirements: Vec<pep508_rs::Requirement> =
+        match prepare_requirements(&installer, &collector).await {
+            Ok(requirements) => requirements,
+            Err(err) => {
+                collector.job_error(format!("下载安装软件包中发生错误: {err}"));
+                return;
+            }
+        };
+
+    collector.start_downloading(installer, requirements, 0);
+}
+
+pub async fn download_worker(
+    installer: Installer,
+    collector: Step4Collector,
+    requirements: Vec<Requirement>,
+    requirement_idx: usize,
+) {
+    use super::super::pyenv::retry_download_requirement;
+
+    let requirement = &requirements[requirement_idx];
+
+    if let Err(err) = retry_download_requirement(&installer, &collector, requirement).await {
+        collector.send(Step3Message::DownloadingError(
+            installer,
+            requirements,
+            requirement_idx,
+            err.to_string(),
+        ));
         return;
+    } else {
+        collector.send(Step3Message::DownloadingDone(
+            installer,
+            requirements,
+            requirement_idx,
+        ));
     }
-
-    collector.job_success();
-
-    collector.done(installer);
 }

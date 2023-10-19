@@ -5,8 +5,6 @@ pub trait StatusUpdate {
 
     fn message(&self, msg: &str);
 
-    fn update_progress(&self, num: u32, max_num: u32);
-
     fn update_downloading(&self, status: &DownloadingStats);
 
     fn log_debug(&self, msg: String);

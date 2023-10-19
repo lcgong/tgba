@@ -177,7 +177,7 @@ impl Step1Tab {
         &self.panel
     }
 
-    pub fn handle_message(&mut self, msg: Step1Message) {
+    pub fn handle_message(&mut self, _msg: Step1Message) {
         // println!("handle: {} msg: {:?}", self.a_no, msg);
     }
 }

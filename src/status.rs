@@ -1,15 +1,9 @@
 use std::time::{Duration, Instant};
 
 pub trait StatusUpdate {
-    fn alert(&self, err: &str);
-
     fn message(&self, msg: &str);
 
     fn update_downloading(&self, status: &DownloadingStats);
-
-    fn log_debug(&self, msg: String);
-
-    fn log_error(&self, err: String);
 }
 
 pub struct DownloadingStats {

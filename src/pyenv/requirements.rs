@@ -2,13 +2,12 @@ use anyhow::{bail, Result};
 use pep508_rs::Requirement;
 use std::{fs::File, path::PathBuf};
 
+use crate::errors::DownloadingError;
+
 use super::super::status::StatusUpdate;
 use super::installer::Installer;
 
-pub async fn prepare_requirements(
-    installer: &Installer,
-    collector: &impl StatusUpdate,
-) -> Result<Vec<Requirement>> {
+pub async fn prepare_requirements(installer: &Installer) -> Result<Vec<Requirement>> {
     let cached_packages_dir = &installer.cached_packages_dir;
     if let Err(_err) = std::fs::create_dir_all(cached_packages_dir) {
         bail!(
@@ -20,11 +19,8 @@ pub async fn prepare_requirements(
 
     let requirements_path = &get_requirements_path(installer).await?;
 
-    collector.log_debug(format!("程序包需求文件: {}", requirements_path.display()));
-    collector.log_debug(format!(
-        "程序包下载临时目录: {}",
-        cached_packages_dir.display()
-    ));
+    log::info!("程序包需求文件: {}", requirements_path.display());
+    log::info!("程序包下载临时目录: {}", cached_packages_dir.display());
 
     let mut requirements = extract_requirements(requirements_path).await?;
     requirements.append(&mut get_obligated_requirements(installer)?);
@@ -51,41 +47,51 @@ pub async fn retry_download_requirement(
     installer: &Installer,
     collector: &impl StatusUpdate,
     requirement: &Requirement,
-) -> Result<()> {
+) -> Result<(), DownloadingError> {
     use super::project::download_requirement;
+
+    let mut errors = Vec::new();
     for pypi in installer.pypi_mirrors() {
         match download_requirement(installer, collector, &pypi, requirement).await {
             Ok(_) => {
                 return Ok(());
             }
             Err(err) => {
-                collector.log_error(format!(
+                log::error!(
                     "从{}下载{}中发生错误: {}",
                     pypi.name(),
                     requirement.name,
                     err
-                ));
+                );
+                let pypi_name = pypi.name();
+                errors.push(format!("尝试从{pypi_name}镜像下载发生错误: {err}"));
             }
         };
     }
 
-    let mirrors = installer
-        .pypi_mirrors()
-        .iter()
-        .map(|m| m.name())
-        .collect::<Vec<&str>>()
-        .join(",");
+    let details = errors.join("\n");
+    let pkg_name = &requirement.name;
 
-    bail!(
-        "在现有PYPI镜像({})中没有发现需求{}所对应可用的程序包",
-        mirrors,
-        requirement.name
-    )
+    return Err(DownloadingError::error(format!(
+        "下载{pkg_name}发生错误:\n{details}"
+    )));
+
+    // let mirrors = installer
+    //     .pypi_mirrors()
+    //     .iter()
+    //     .map(|m| m.name())
+    //     .collect::<Vec<&str>>()
+    //     .join(",");
+
+    // bail!(
+    //     "在现有PYPI镜像({})中没有发现需求{}所对应可用的程序包",
+    //     mirrors,
+    //     requirement.name
+    // )
 }
 
 pub async fn offline_install_requirements(
     installer: &Installer,
-    collector: &impl StatusUpdate,
 ) -> Result<()> {
     use super::venv::venv_python_cmd;
 
@@ -106,12 +112,13 @@ pub async fn offline_install_requirements(
         &requirements_path,
     ];
 
-    collector.log_debug(format!(
-        "从{}目录中安装程序包: {}",
-        cached_packages_dir, requirements_path
-    ));
+    log::info!(
+        "开始从本地{}安装程序需求{}",
+        cached_packages_dir,
+        requirements_path,
+    );
 
-    let err = match venv_python_cmd(installer, collector, args) {
+    let err = match venv_python_cmd(installer, args) {
         Ok(output) => {
             if output.status.success() {
                 return Ok(());

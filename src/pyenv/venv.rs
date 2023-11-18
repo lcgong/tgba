@@ -31,7 +31,7 @@ print(json.dumps({
 }))
 "#;
 
-pub fn set_platform_info(installer: &mut Installer, collector: &impl StatusUpdate) -> Result<()> {
+pub fn set_platform_info(installer: &mut Installer) -> Result<()> {
     let tmp_dir = tempfile::tempdir()?;
 
     let script_file = tmp_dir.path().join("platform_info.py");
@@ -43,7 +43,7 @@ pub fn set_platform_info(installer: &mut Installer, collector: &impl StatusUpdat
     file.write_all(PLATFORM_INFO_SCRIPT.as_bytes())?;
     file.sync_all()?;
 
-    collector.log_debug(format!("platform script file: {}", &script_file.display()));
+    log::info!("临时获取平台信息Python程序脚本: {}", &script_file.display());
 
     let output = Command::new(&installer.venv_python_path)
         .arg(&script_file)
@@ -56,7 +56,7 @@ pub fn set_platform_info(installer: &mut Installer, collector: &impl StatusUpdat
     let json_msg: serde_json::Value = serde_json::from_str(&output)?;
 
     installer.platform_tag = Some(json_msg["platform_tag"].as_str().unwrap().to_string());
-    collector.log_debug(format!("系统平台标签: {}", json_msg["platform_tag"]));
+    log::info!("系统平台标签: {}", json_msg["platform_tag"]);
 
     let support_tags_map = &mut installer.support_tags_map;
     for (i, tag) in json_msg["support_tags"]
@@ -69,7 +69,7 @@ pub fn set_platform_info(installer: &mut Installer, collector: &impl StatusUpdat
         support_tags_map.insert(tag.to_string(), i as u32);
     }
 
-    collector.log_debug(format!("系统支持的平台标签: {}", json_msg["support_tags"]));
+    log::info!("系统支持的平台标签: {}", json_msg["support_tags"]);
 
     Ok(())
 }
@@ -164,7 +164,6 @@ use super::super::utils::detect_decode;
 
 pub fn venv_python_cmd(
     installer: &Installer,
-    collector: &impl StatusUpdate,
     args: &[&str],
 ) -> Result<std::process::Output> {
     let python_bin = &installer.venv_python_path;
@@ -209,71 +208,24 @@ pub fn venv_python_cmd(
     };
 
     let stdout_string = detect_decode(&output.stdout);
-    collector.log_debug(if output.stderr.is_empty() {
-        format!(
-            "CMD {}\nSTATUS: {}\nSTDOUT:{}\n",
-            prog_cmd, output.status, stdout_string
+    if output.stderr.is_empty() {
+        log::info!(
+            "执行结果: CMD {}\nSTATUS: {}\nSTDOUT:{}\n",
+            prog_cmd,
+            output.status,
+            stdout_string
         )
     } else {
         let stderr_string = detect_decode(&output.stderr);
-        format!(
-            "CMD: {}\nSTATUS: {}\nSTDOUT:\n{}\nSTDERR:\n{}\n",
-            prog_cmd, output.status, stdout_string, stderr_string,
+        log::info!(
+            "执行结果: CMD: {}\nSTATUS: {}\nSTDOUT:\n{}\nSTDERR:\n{}\n",
+            prog_cmd,
+            output.status,
+            stdout_string,
+            stderr_string,
         )
-    });
+    };
 
     Ok(output)
 }
 
-// pub fn venv_cmd(installer: &Installer) -> Result<()> {
-//     // 将venv/Script目录添加到环境变量PATH中
-//     use std::env;
-//     let venv_script_dir = installer.venv_dir.join("Scripts");
-//     let path_env = if let Some(path) = env::var_os("PATH") {
-//         let mut paths = std::env::split_paths(&path).collect::<Vec<_>>();
-//         paths.insert(0, venv_script_dir);
-//         env::join_paths(paths)?
-//     } else {
-//         let paths = vec![venv_script_dir];
-//         env::join_paths(paths)?
-//     };
-
-//     println!("path: {}", &path_env.to_string_lossy());
-
-//     let mut cmd = Command::new("cmd.exe");
-//     cmd.env("PATH", path_env.to_string_lossy().as_ref());
-//     cmd.env("VIRTUAL_ENV", installer.venv_dir.to_string_lossy().as_ref());
-//     cmd.env_remove("PYTHONHOME");
-
-//     cmd.arg("/c");
-//     cmd.arg("set");
-
-//     let args_str = cmd
-//         .get_args()
-//         .map(|s| s.to_string_lossy().to_string())
-//         .collect::<Vec<String>>()
-//         .join(" ");
-//     let prog_cmd = format!("{} {}", cmd.get_program().to_string_lossy(), args_str);
-//     println!("cmd: {}", prog_cmd);
-
-//     let output = match cmd.output() {
-//         Ok(output) => output,
-//         Err(err) => {
-//             use std::io::ErrorKind;
-//             if err.kind() == ErrorKind::Interrupted {
-//                 bail!("程序({})异常中断: {}", prog_cmd, err)
-//             } else {
-//                 bail!("程序({})无法执行：{}", prog_cmd, err)
-//             }
-//         }
-//     };
-
-//     println!(
-//         "STATUS:{}\n{}\nSTDERR:\n{}",
-//         output.status,
-//         String::from_utf8_lossy(&output.stdout),
-//         String::from_utf8_lossy(&output.stderr)
-//     );
-
-//     Ok(())
-// }

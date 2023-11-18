@@ -5,7 +5,8 @@ use std::fs::File;
 use std::path::PathBuf;
 use url::Url;
 
-use super::download::{download, fetch_text};
+use super::super::errors::DownloadingError;
+use super::download::download;
 use super::installer::Installer;
 use super::link::{parse_link_from_url, PackageLink};
 use crate::pyenv::checksum;
@@ -53,45 +54,86 @@ pub async fn download_requirement(
     collector: &impl StatusUpdate,
     pypi: &PyPIMirror,
     requirement: &Requirement,
-) -> Result<()> {
+) -> Result<(), DownloadingError> {
     let project_name = requirement.name.as_str();
 
     let mut project_index = ProjectIndex::new(pypi, project_name);
 
-    let page = fetch_text(
-        installer,
-        project_index.project_url(),
-        format!("从{}获取{}包信息", pypi.name(), project_name).as_str(),
-    )
-    .await?;
+    let resp = match installer
+        .client
+        .get(project_index.project_url())
+        .send()
+        .await
+    {
+        Ok(resp) => resp,
+        Err(err) => {
+            return Err(if err.is_timeout() {
+                DownloadingError::timeout_error(format!("获取{}程序包索引数据", project_name))
+            } else {
+                DownloadingError::server_error(format!("{}", err))
+            });
+        }
+    };
 
-    parse_index_html_page(&mut project_index, page.as_str())?;
+    let status = resp.status();
+    if !status.is_success() {
+        let status_code = status.as_u16();
+        if status_code == 404 {
+            return Err(DownloadingError::not_found(format!(
+                "未找到'{}'程序包索引数据",
+                project_name
+            )));
+        } else {
+            return Err(DownloadingError::server_error(format!(
+                "HTTP状态码[{}]",
+                status_code
+            )));
+        }
+    }
 
-    let candidates = find_candidates_links(installer, &project_index, &requirement)?;
+    let page_content = match resp.text().await {
+        Ok(text) => text,
+        Err(err) => {
+            return Err(if err.is_timeout() {
+                DownloadingError::timeout_error(format!("获取{}程序包索引数据", project_name))
+            } else {
+                DownloadingError::server_error(format!("{}", err))
+            });
+        }
+    };
 
-    // println!("需求：{}", requirement);
-    // for link in find_candidates_links(installer, &project_index, &requirement)? {
-    //     println!("link: {} {}", link.package_version(), link.filename_base());
-    // }
+    if let Err(err) = parse_index_html_page(&mut project_index, page_content.as_str()) {
+        return Err(DownloadingError::error(format!(
+            "页面{}，解析出现错误: {err}",
+            project_index.project_url()
+        )));
+    };
+
+    let candidates = match find_candidates_links(installer, &project_index, &requirement) {
+        Ok(candidates) => candidates,
+        Err(err) => {
+            return Err(DownloadingError::error(format!(
+                "页面{}，解析候选下载项目出现错误: {err}",
+                project_index.project_url()
+            )));
+        }
+    };
 
     let link = if candidates.len() > 0 {
         candidates[0]
     } else {
-        bail!(
+        return Err(DownloadingError::error(format!(
             "未在{}发现满足需求({})的包: {}",
             pypi.name(),
             requirement,
             project_index.project_url()
-        )
+        )));
     };
 
     let cached_filename = &installer.cached_packages_dir.join(link.file_name());
 
     if is_cached_file_available(link, cached_filename)? {
-        collector.log_debug(format!(
-            "程序包{}本地已缓存，无需下载",
-            cached_filename.display()
-        ));
+        log::info!("程序包{}本地已缓存，无需下载", cached_filename.display());
         return Ok(());
     }
 
@@ -106,7 +148,7 @@ async fn download_link(
     pypi: &PyPIMirror,
     link: &PackageLink,
     cached_filename: &PathBuf,
-) -> Result<()> {
+) -> Result<(), DownloadingError> {
     let buffer = download(
         installer,
         status_updater,
@@ -116,22 +158,47 @@ async fn download_link(
     .await?;
 
     if let Some((checksum_method, hexcode)) = link.checksum() {
-        if !checksum(checksum_method, &buffer, hexcode)? {
-            bail!("文件sha256完整检查失败: {}", link.file_name())
-        }
+        match checksum(checksum_method, &buffer, hexcode) {
+            Ok(valid) => {
+                if !valid {
+                    return Err(DownloadingError::error(format!(
+                        "文件SHA256完整检验与原文件不一致: {}",
+                        link.file_name()
+                    )));
+                }
+            }
+            Err(err) => {
+                return Err(DownloadingError::error(format!(
+                    "SHA256完整性检验中出现错误检查失败: {err}",
+                )));
+            }
+        };
     } else {
-        bail!("文件{}无checksum码", cached_filename.display())
+        return Err(DownloadingError::error(format!(
+            "文件{}无checksum码",
+            cached_filename.display()
+        )));
     }
 
-    let mut package_file = File::create(cached_filename)?;
+    let mut package_file = match File::create(cached_filename) {
+        Ok(file) => file,
+        Err(err) => {
+            return Err(DownloadingError::error(format!("下载文件写入错误：{err}")));
+        }
+    };
 
     use std::io::Write;
-    package_file.write_all(&buffer)?;
+    if let Err(err) = package_file.write_all(&buffer) {
+        return Err(DownloadingError::error(format!("下载文件写入错误：{err}")));
+    };
 
     Ok(())
 }
 
-fn is_cached_file_available(link: &PackageLink, cached_filename: &PathBuf) -> Result<bool> {
+fn is_cached_file_available(
+    link: &PackageLink,
+    cached_filename: &PathBuf,
+) -> Result<bool, DownloadingError> {
     if !cached_filename.is_file() {
         // 文件不存在，无需进一步的检查
         return Ok(false);
@@ -154,7 +221,11 @@ fn is_cached_file_available(link: &PackageLink, cached_filename: &PathBuf) -> Re
     };
 
     if let Err(err) = std::fs::remove_file(cached_filename) {
-        bail!("删除无效临时文件{}错误: {}", cached_filename.display(), err)
+        return Err(DownloadingError::error(format!(
+            "删除无效临时文件{}错误: {}",
+            cached_filename.display(),
+            err
+        )));
     }
 
     Ok(false)
@@ -199,9 +270,6 @@ fn parse_index_html_page(
         else {
             continue;
         };
-
-        // let file_ext = link.filename_extension();
-        // println!("{:?}\n", link);
 
         project_index.links.push(link);
     }

@@ -7,11 +7,7 @@ use fltk::{
     prelude::{GroupExt, WidgetBase, WidgetExt},
 };
 
-use super::super::{
-    myapp::{InstallerLogs, Message},
-    pyenv::Installer,
-    style::AppStyle,
-};
+use super::super::{myapp::Message, pyenv::Installer, style::AppStyle};
 
 #[derive(Debug)]
 pub enum Step5Message {
@@ -22,17 +18,11 @@ pub enum Step5Message {
 pub struct Step5Tab {
     panel: Flex,
     installer: Option<Installer>,
-    _logs: InstallerLogs,
     _sender: Sender<Message>,
 }
 
 impl Step5Tab {
-    pub fn new(
-        logs: InstallerLogs,
-        group: &mut Group,
-        _style: &AppStyle,
-        sender: Sender<Message>,
-    ) -> Self {
+    pub fn new(group: &mut Group, _style: &AppStyle, sender: Sender<Message>) -> Self {
         let mut panel = Flex::default_fill().column();
 
         panel.resize(group.x(), group.y(), group.w(), group.h());
@@ -72,7 +62,6 @@ impl Step5Tab {
             panel,
             installer: None,
             _sender: sender,
-            _logs: logs,
         }
     }
 

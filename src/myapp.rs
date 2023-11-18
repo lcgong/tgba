@@ -7,10 +7,8 @@ use fltk::{
     prelude::{GroupExt, WidgetBase, WidgetExt, WindowExt},
     window::DoubleWindow,
 };
-use std::{
-    any::Any,
-    sync::{Arc, Mutex},
-};
+
+use std::any::Any;
 
 use super::{
     resources::RESOURCES,
@@ -21,18 +19,9 @@ use super::{
         step3::{Step3Message, Step3Tab},
         step4::{Step4Message, Step4Tab},
         step5::{Step5Message, Step5Tab},
-        // step6::{Step6Message, Step6Tab},
     },
     style::AppStyle,
 };
-
-pub enum InstallerLogRecord {
-    Debug(String),
-    Info(String),
-    Error(String),
-}
-
-pub type InstallerLogs = Arc<Mutex<Vec<InstallerLogRecord>>>;
 
 pub struct MyApp {
     app: fltk::app::App,
@@ -43,7 +32,6 @@ pub struct MyApp {
     step_group: Group,
     step_objs: Vec<Box<dyn Any>>,
     main_win: DoubleWindow,
-    logs: InstallerLogs, // style: AppStyle,
 }
 
 #[derive(Debug)]
@@ -111,8 +99,6 @@ fn app_footer(_s: &Sender<Message>, parent: &mut Flex, style: &AppStyle) {
 
 impl MyApp {
     pub fn new() -> Self {
-        let logs = Arc::new(Mutex::new(Vec::new()));
-
         let app = fltk::app::App::default().with_scheme(fltk::app::Scheme::Gtk);
 
         app.load_system_fonts();
@@ -151,32 +137,17 @@ impl MyApp {
 
         let mut step_group = Group::default_fill();
         let step_objs: Vec<Box<dyn Any>> = vec![
-            Box::new(Step1Tab::new(
-                logs.clone(),
-                &mut step_group,
-                &style,
-                s.clone(),
-            )),
-            Box::new(Step2Tab::new(
-                logs.clone(),
-                &mut step_group,
-                &style,
-                s.clone(),
-            )),
+            Box::new(Step1Tab::new(&mut step_group, &style, s.clone())),
+            Box::new(Step2Tab::new(&mut step_group, &style, s.clone())),
             Box::new(Step3Tab::new(
-                logs.clone(),
+                main_win.clone(),
                 &mut step_group,
                 &style,
                 s.clone(),
             )),
-            Box::new(Step4Tab::new(
-                logs.clone(),
-                &mut step_group,
-                &style,
-                s.clone(),
-            )),
+            Box::new(Step4Tab::new(&mut step_group, &style, s.clone())),
             Box::new(Step5Tab::new(
-                logs.clone(),
+                // logs.clone(),
                 &mut step_group,
                 &style,
                 s.clone(),
@@ -198,7 +169,6 @@ impl MyApp {
             navbar,
             step_objs,
             main_win,
-            logs,
         };
 
         myapp.main_win.set_callback({
@@ -276,19 +246,16 @@ impl MyApp {
 
             use Message::*;
             match msg {
-                Step1(msg @ Step1Message::Enter) => {
+                Step1(_msg @ Step1Message::Enter) => {
                     self.set_step(0);
-                    let d = self.get_step_mut::<Step1Tab>();
-                    d.handle_message(msg);
                 }
                 Step1(Step1Message::Done { target_dir }) => {
-                    println!("step1: done: {:?}", target_dir);
                     s.send(Step2(Step2Message::Enter { target_dir }));
                 }
-                Step1(msg) => {
-                    let d = self.get_step_mut::<Step1Tab>();
-                    d.handle_message(msg);
-                }
+                // Step1(msg) => {
+                //     let d = self.get_step_mut::<Step1Tab>();
+                //     d.handle_message(msg);
+                // }
                 //
                 Step2(Step2Message::Enter { target_dir }) => {
                     self.set_step(1);

@@ -11,7 +11,6 @@ use fltk::{
     prelude::{GroupExt, InputExt, WidgetBase, WidgetExt},
 };
 
-use super::super::myapp::InstallerLogs;
 use super::super::{myapp::Message, style::AppStyle};
 
 use fltk::input::Input;
@@ -19,7 +18,7 @@ use fltk::input::Input;
 #[derive(Debug)]
 pub enum Step1Message {
     Enter,
-    Modified,
+    // Modified,
     Done { target_dir: String },
 }
 
@@ -28,14 +27,12 @@ pub struct Step1Tab {
     target_dir_input: Input,
     start_btn: Button,
     sender: Sender<Message>,
-    logs: InstallerLogs,
 }
 
 impl Step1Tab {
     const DEFAUL_TARGET_DIR: &str = r#"C:\tgba"#;
 
     pub fn new(
-        logs: InstallerLogs,
         group: &mut Group,
         style: &AppStyle,
         sender: Sender<Message>,
@@ -119,7 +116,6 @@ impl Step1Tab {
         panel.end();
 
         let mut obj = Step1Tab {
-            logs,
             panel,
             start_btn,
             target_dir_input,
@@ -177,9 +173,9 @@ impl Step1Tab {
         &self.panel
     }
 
-    pub fn handle_message(&mut self, _msg: Step1Message) {
-        // println!("handle: {} msg: {:?}", self.a_no, msg);
-    }
+    // pub fn handle_message(&mut self, _msg: Step1Message) {
+    //     // println!("handle: {} msg: {:?}", self.a_no, msg);
+    // }
 }
 
 fn check_availabel_space(
@@ -198,11 +194,13 @@ fn check_availabel_space(
         let driver = prefix.as_os_str().to_os_string();
         if let Some(freespace) = map.get(&driver) {
             if expected_space < *freespace {
-                hints_label.set_label(&format!(
+                let msg = format!(
                     "安装所需空间约 {} GiB 内，剩余空间 {:.1} GiB",
                     expected_space, freespace
-                ));
+                );
+                hints_label.set_label(&msg);
                 hints_label.set_label_color(Color::from_rgb(5, 100, 5));
+                log::info!("{msg}");
 
                 return true;
             } else {

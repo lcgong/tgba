@@ -1,4 +1,3 @@
-use super::super::myapp::{InstallerLogRecord, InstallerLogs};
 use super::super::{
     myapp::Message,
     pyenv::Installer,
@@ -30,7 +29,6 @@ pub struct Step4Tab {
     job_messages: Vec<Frame>,
     job_spinners: Vec<LoadingSpinner>,
     installer: Option<Installer>,
-    logs: InstallerLogs,
 }
 
 static GREY_COLOR: Color = Color::from_rgb(200, 200, 200);
@@ -69,12 +67,7 @@ fn render_job_status(
 }
 
 impl Step4Tab {
-    pub fn new(
-        logs: InstallerLogs,
-        group: &mut Group,
-        _style: &AppStyle,
-        sender: Sender<Message>,
-    ) -> Self {
+    pub fn new(group: &mut Group, _style: &AppStyle, sender: Sender<Message>) -> Self {
         let mut panel = Flex::default_fill().column();
 
         panel.resize(group.x(), group.y(), group.w(), group.h());
@@ -117,7 +110,6 @@ impl Step4Tab {
         panel.end();
 
         Step4Tab {
-            logs,
             panel,
             sender,
             job_spinners,
@@ -132,7 +124,7 @@ impl Step4Tab {
 
     pub fn start(&mut self, installer: Installer) {
         self.installer = Some(installer.clone());
-        let collector = Step4Collector::new(self.logs.clone(), self.sender.clone());
+        let collector = Step4Collector::new(self.sender.clone());
 
         let handle = tokio::runtime::Handle::current();
 
@@ -174,15 +166,15 @@ impl Step4Tab {
 pub struct Step4Collector {
     job_idx: usize,
     sender: Sender<Message>,
-    logs: InstallerLogs,
+    // logs: InstallerLogs,
 }
 
 impl Step4Collector {
-    pub fn new(logs: InstallerLogs, sender: Sender<Message>) -> Self {
+    pub fn new(sender: Sender<Message>) -> Self {
         Step4Collector {
             job_idx: 0,
             sender,
-            logs,
+            // logs,
         }
     }
 }
@@ -211,39 +203,15 @@ impl Step4Collector {
     fn send(&self, msg: Step4Message) {
         self.sender.send(Message::Step4(msg));
     }
-
-    fn write(&self, record: InstallerLogRecord) {
-        if let Ok(mut records) = self.logs.lock() {
-            records.push(record);
-        } else {
-            fltk::app::awake_callback(move || {
-                fltk::dialog::alert_default("无法获取日志锁");
-            });
-        }
-    }
 }
 
 impl StatusUpdate for Step4Collector {
-    fn alert(&self, err: &str) {
-        println!("Error: {err}");
-    }
-
     fn message(&self, msg: &str) {
         self.send(Step4Message::JobMessage(self.job_idx, msg.to_string()));
     }
 
     fn update_downloading(&self, _status: &DownloadingStats) {
         unimplemented!()
-    }
-
-    fn log_debug(&self, msg: String) {
-        println!("{}", msg);
-        self.write(InstallerLogRecord::Debug(msg));
-    }
-
-    fn log_error(&self, msg: String) {
-        eprintln!("{}", msg);
-        self.write(InstallerLogRecord::Error(msg));
     }
 }
 
@@ -253,14 +221,14 @@ pub async fn step4_run(mut installer: Installer, mut collector: Step4Collector) 
     };
 
     if installer.platform_tag.is_none() {
-        if let Err(err) = set_platform_info(&mut installer, &collector) {
+        if let Err(err) = set_platform_info(&mut installer) {
             collector.job_error(format!("获取系统平台信息发生错误: {err}"));
             return;
         }
     }
 
     collector.job_start();
-    if let Err(err) = offline_install_requirements(&installer, &collector).await {
+    if let Err(err) = offline_install_requirements(&installer).await {
         collector.job_error(format!("本地安装程序包发生错误: {err}"));
         return;
     };

@@ -9,7 +9,7 @@ use fltk::{
 use std::path::PathBuf;
 
 use super::super::{
-    myapp::{InstallerLogRecord, InstallerLogs, Message},
+    myapp::Message,
     pyenv::{ensure_python_dist, ensure_venv, Installer},
     status::{DownloadingStats, LoadingSpinner, StatusUpdate},
     steps::utils::format_scale,
@@ -41,19 +41,13 @@ pub struct Step2Tab {
     job_spinners: Vec<LoadingSpinner>,
     job1_progress: Progress,
     installer: Option<Installer>,
-    logs: InstallerLogs,
 }
 
 static GREY_COLOR: Color = Color::from_rgb(200, 200, 200);
 static MESSAGE_COLOR: Color = Color::from_rgb(10, 10, 10);
 
 impl Step2Tab {
-    pub fn new(
-        logs: InstallerLogs,
-        group: &mut Group,
-        style: &AppStyle,
-        sender: Sender<Message>,
-    ) -> Self {
+    pub fn new(group: &mut Group, style: &AppStyle, sender: Sender<Message>) -> Self {
         let mut panel = Flex::default_fill().column();
 
         let job_title = ["下载安装Python", "创建Python虚拟环境"];
@@ -142,7 +136,6 @@ impl Step2Tab {
             job_messages,
             job1_progress,
             installer: None,
-            logs,
         }
     }
 
@@ -151,7 +144,7 @@ impl Step2Tab {
     }
 
     pub fn start(&mut self, target_dir: &str) {
-        let mut collector = StatusCollector::new(self.logs.clone(), self.sender.clone());
+        let mut collector = StatusCollector::new(self.sender.clone());
 
         let installer = match Installer::new(PathBuf::from(target_dir)) {
             Ok(installer) => installer,
@@ -173,7 +166,6 @@ impl Step2Tab {
     }
 
     pub fn handle_message(&mut self, msg: Step2Message) {
-        println!("msg: {msg:?}");
         match msg {
             Step2Message::StartJob(job_idx) => {
                 self.job_spinners[job_idx].start();
@@ -205,7 +197,7 @@ impl Step2Tab {
                 self.job1_progress.set_value(percentage);
             }
             msg @ _ => {
-                println!("unimplemented {:?}", msg);
+                log::error!("unimplemented {:?}", msg);
             }
         }
     }
@@ -214,16 +206,11 @@ impl Step2Tab {
 pub struct StatusCollector {
     job_idx: usize,
     sender: Sender<Message>,
-    logs: InstallerLogs,
 }
 
 impl StatusCollector {
-    pub fn new(logs: InstallerLogs, sender: Sender<Message>) -> Self {
-        StatusCollector {
-            job_idx: 0,
-            logs,
-            sender,
-        }
+    pub fn new(sender: Sender<Message>) -> Self {
+        StatusCollector { job_idx: 0, sender }
     }
 
     pub fn next_job(&mut self) {
@@ -250,31 +237,20 @@ impl StatusCollector {
         self.sender.send(Message::Step2(msg));
     }
 
-    fn write(&self, record: InstallerLogRecord) {
-        if let Ok(mut records) = self.logs.lock() {
-            records.push(record);
-        } else {
-            fltk::app::awake_callback(move || {
-                fltk::dialog::alert_default("无法获取日志锁");
-            });
-        }
-    }
+    // fn write(&self, record: InstallerLogRecord) {
+    //     if let Ok(mut records) = self.logs.lock() {
+    //         records.push(record);
+    //     } else {
+    //         fltk::app::awake_callback(move || {
+    //             fltk::dialog::alert_default("无法获取日志锁");
+    //         });
+    //     }
+    // }
 }
 
 impl StatusUpdate for StatusCollector {
-    fn alert(&self, err: &str) {
-        let errmsg = err.to_string();
-        let job_idx = self.job_idx;
-        let sender = self.sender.clone();
-        fltk::app::awake_callback(move || {
-            sender.send(Message::Step2(Step2Message::ErrorJob(
-                job_idx,
-                errmsg.clone(),
-            )));
-        });
-    }
-
     fn message(&self, msg: &str) {
+        log::info!("{msg}");
         self.send(Step2Message::JobMessage(self.job_idx, msg.to_string()));
     }
 
@@ -297,16 +273,6 @@ impl StatusUpdate for StatusCollector {
                 speed,
             }));
         });
-    }
-
-    fn log_debug(&self, msg: String) {
-        println!("{}", msg);
-        self.write(InstallerLogRecord::Debug(msg));
-    }
-
-    fn log_error(&self, msg: String) {
-        eprintln!("{}", msg);
-        self.write(InstallerLogRecord::Error(msg));
     }
 }
 

@@ -5,9 +5,9 @@ use fltk::{
     group::{Flex, Group},
     misc::Progress,
     prelude::{GroupExt, WidgetBase, WidgetExt},
+    window::DoubleWindow,
 };
 
-use super::super::myapp::{InstallerLogRecord, InstallerLogs};
 use super::super::status::LoadingSpinner;
 use super::super::status::{DownloadingStats, StatusUpdate};
 use super::super::{myapp::Message, style::AppStyle};
@@ -39,6 +39,7 @@ pub enum Step3Message {
 pub struct Step3Tab {
     // c_no: usize,
     // installer: Option<Installer>,
+    main_win: DoubleWindow,
     panel: Flex,
     sender: Sender<Message>,
     job_progress: Progress,
@@ -48,7 +49,6 @@ pub struct Step3Tab {
     downloading_speed: Frame,
     downloading_progress: Progress,
     job_spinner: LoadingSpinner,
-    logs: InstallerLogs,
 }
 
 static GREY_COLOR: Color = Color::from_rgb(200, 200, 200);
@@ -56,7 +56,8 @@ static MESSAGE_COLOR: Color = Color::from_rgb(10, 10, 10);
 
 impl Step3Tab {
     pub fn new(
-        logs: InstallerLogs,
+        main_win: DoubleWindow,
+        // logs: InstallerLogs,
         group: &mut Group,
         style: &AppStyle,
         sender: Sender<Message>,
@@ -171,8 +172,7 @@ impl Step3Tab {
         panel.end();
 
         Step3Tab {
-            // installer: None,
-            logs,
+            main_win,
             panel,
             sender,
             job_spinner,
@@ -191,7 +191,7 @@ impl Step3Tab {
 
     pub fn start(&mut self, installer: Installer) {
         let handle = tokio::runtime::Handle::current();
-        let collector = Step4Collector::new(self.logs.clone(), self.sender.clone());
+        let collector = Step4Collector::new(self.sender.clone());
 
         self.job_spinner.start();
 
@@ -208,7 +208,7 @@ impl Step3Tab {
         requirement_idx: usize,
     ) {
         let handle = tokio::runtime::Handle::current();
-        let collector = Step4Collector::new(self.logs.clone(), self.sender.clone());
+        let collector = Step4Collector::new(self.sender.clone());
 
         std::thread::spawn(move || {
             // 在新线程内运行异步代码
@@ -262,7 +262,21 @@ impl Step3Tab {
         requirement_idx: usize,
         errmsg: String,
     ) {
-        unimplemented!()
+        log::error!("下载中遇到错误: \n{errmsg}");
+        use super::super::dialog::error_confirm;
+
+        let result = error_confirm(&self.main_win, "下载失败", &errmsg);
+        if result == 1 {
+            log::info!("用户选择再次尝试下载{}", requirements[requirement_idx]);
+            self.sender
+                .send(Message::Step3(Step3Message::DownloadingStart(
+                    installer,
+                    requirements,
+                    requirement_idx,
+                )));
+        } else {
+            log::info!("用户选择放弃安装，退出程序！");
+        }
     }
 
     fn on_downloading_status(
@@ -313,12 +327,11 @@ impl Step3Tab {
 
 pub struct Step4Collector {
     sender: Sender<Message>,
-    logs: InstallerLogs,
 }
 
 impl Step4Collector {
-    pub fn new(logs: InstallerLogs, sender: Sender<Message>) -> Self {
-        Step4Collector { logs, sender }
+    pub fn new(sender: Sender<Message>) -> Self {
+        Step4Collector { sender }
     }
 
     pub fn job_error(&mut self, err: String) {
@@ -332,23 +345,9 @@ impl Step4Collector {
     fn send(&self, msg: Step3Message) {
         self.sender.send(Message::Step3(msg));
     }
-
-    fn write(&self, record: InstallerLogRecord) {
-        if let Ok(mut records) = self.logs.lock() {
-            records.push(record);
-        } else {
-            fltk::app::awake_callback(move || {
-                fltk::dialog::alert_default("无法获取日志锁");
-            });
-        }
-    }
 }
 
 impl StatusUpdate for Step4Collector {
-    fn alert(&self, err: &str) {
-        println!("ERROR: {err}");
-    }
-
     fn message(&self, msg: &str) {
         self.send(Step3Message::JobMessage(msg.to_string()));
     }
@@ -361,34 +360,23 @@ impl StatusUpdate for Step4Collector {
             speed: status.speed(),
         });
     }
-
-    fn log_debug(&self, msg: String) {
-        println!("{}", msg);
-        self.write(InstallerLogRecord::Debug(msg));
-    }
-
-    fn log_error(&self, msg: String) {
-        eprintln!("{}", msg);
-        self.write(InstallerLogRecord::Error(msg));
-    }
 }
 
 pub async fn prepare_downloading(mut installer: Installer, mut collector: Step4Collector) {
     use super::super::pyenv::{prepare_requirements, set_platform_info};
 
-    if let Err(err) = set_platform_info(&mut installer, &collector) {
+    if let Err(err) = set_platform_info(&mut installer) {
         collector.job_error(format!("获取系统平台信息中发生错误: {err}"));
         return;
     }
 
-    let requirements: Vec<pep508_rs::Requirement> =
-        match prepare_requirements(&installer, &collector).await {
-            Ok(requirements) => requirements,
-            Err(err) => {
-                collector.job_error(format!("下载安装软件包中发生错误: {err}"));
-                return;
-            }
-        };
+    let requirements: Vec<pep508_rs::Requirement> = match prepare_requirements(&installer).await {
+        Ok(requirements) => requirements,
+        Err(err) => {
+            collector.job_error(format!("下载安装软件包中发生错误: {err}"));
+            return;
+        }
+    };
 
     collector.start_downloading(installer, requirements, 0);
 }

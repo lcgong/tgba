@@ -1,20 +1,19 @@
-pip_version = "23.2.1"
+pip_version = "24.0"
 obligated_requirements = ["setuptools>=68.0.0", "wheel>=0.38.0"]
 
 
 # 获取CPython独立打包 https://github.com/indygreg/python-build-standalone/releases
 [[cpython]]
-python_version = "3.11"
-version = "3.11.5-20230826"
-url = "https://gitee.com/lyucg/python-dists/releases/download/20230826/cpython-3.11.5%2020230826-x86_64-pc-windows-msvc-shared-install_only.tar.gz"
-checksum = "00f002263efc8aea896bcfaaf906b1f4dab3e5cd3db53e2b69ab9a10ba220b97"
+python_version = "3.12"
+version = "3.12.2+20240224"
+url = "https://gitee.com/lyucg/python-dists/releases/download/20240224/cpython-3.12.2+20240224-x86_64-pc-windows-msvc-shared-install_only.tar.gz"
+checksum = "1e5655a6ccb1a64a78460e4e3ee21036c70246800f176a6c91043a3fe3654a3b"
 
 [[cpython]]
 python_version = "3.8"
-version = "3.8.17-20230826"
-url = "https://gitee.com/lyucg/python-dists/releases/download/20230826/cpython-3.8.17%2020230826-x86_64-pc-windows-msvc-shared-install_only.tar.gz"
-checksum = "6428e1b4e0b4482d390828de7d4c82815257443416cb786abe10cb2466ca68cd"
-
+version = "3.8.18+20240224"
+url = "https://gitee.com/lyucg/python-dists/releases/download/20240224/cpython-3.8.18+20240224-x86_64-pc-windows-msvc-shared-install_only.tar.gz"
+checksum = "dba923ee5df8f99db04f599e826be92880746c02247c8d8e4d955d4bc711af11"
 
 [[pypi]]
 name = "清华源"
@@ -23,3 +22,7 @@ url = "https://pypi.tuna.tsinghua.edu.cn/simple"
 [[pypi]]
 name = "阿里云"
 url = "http://mirrors.aliyun.com/pypi/simple"
+
+[[pypi]]
+name = "官方PyPI"
+url = "https://pypi.org/simple"

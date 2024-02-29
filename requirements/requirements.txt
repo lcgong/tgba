@@ -31,7 +31,9 @@ python-docx
 duckdb
 magic-duckdb
 
-jupyterlab
 python-lsp-server
+jupyterlab
+jupyterlab-lsp  
 pylint
 autopep8
+ruff

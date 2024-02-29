@@ -30,7 +30,7 @@ pub struct Step1Tab {
 }
 
 impl Step1Tab {
-    const DEFAUL_TARGET_DIR: &str = r#"C:\tgba"#;
+    const DEFAUL_TARGET_DIR: &'static str = r#"C:\tgba"#;
 
     pub fn new(
         group: &mut Group,

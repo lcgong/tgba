@@ -29,7 +29,7 @@ pub struct Installer {
 
 impl Installer {
     pub fn new(target_dir: PathBuf) -> Result<Self, Error> {
-        let tgba_dir = target_dir.join(".tgba");
+        let tgba_dir = target_dir.join(".tgba_platform");
 
         let config = Config::load()?;
         let cpython_source = config.get_cpytion_source()?;

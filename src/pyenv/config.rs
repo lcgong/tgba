@@ -38,7 +38,7 @@ impl Config {
     pub fn get_cpytion_source(&self) -> Result<&CPythonDistSource> {
         use super::utils::get_windows_major_versoin;
         let win_major = get_windows_major_versoin()?;
-        let python_version = if win_major > 7 { "3.11" } else { "3.8" };
+        let python_version = if win_major > 7 { "3.12" } else { "3.8" };
 
         for dist in &self.cpython {
             if dist.python_version == python_version {

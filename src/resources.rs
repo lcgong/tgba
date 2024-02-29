@@ -21,10 +21,10 @@ impl Resources {
     pub fn get_requirements_file(&self, python_version: &str) -> &[u8] {
         if python_version != "3.8" {
             self.requirements
-                .get_or_init(|| include_bytes!("../requirements/requirements-3.11.txt"))
+                .get_or_init(|| include_bytes!("../requirements/requirements-win.txt"))
         } else {
             self.requirements_legacy
-                .get_or_init(|| include_bytes!("../requirements/requirements-3.11.txt"))
+                .get_or_init(|| include_bytes!("../requirements/requirements-win-py38.txt"))
         }
     }
 

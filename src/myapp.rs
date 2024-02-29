@@ -51,14 +51,14 @@ fn app_title(parent: &mut Flex, style: &AppStyle) {
     parent.fixed(&panel, 42);
 
     let mut title_zh = Frame::default()
-        .with_label("业务数据分析(TGBA)实验环境 - 自助安装")
+        .with_label("TGBA（商务数据分析）实验平台 - 安装程序")
         .with_align(Align::Inside | Align::Left);
     title_zh.set_label_font(style.font_bold_zh);
     title_zh.set_label_size(22);
     title_zh.set_label_color(style.tgu_color);
 
     let mut title_en = Frame::default()
-        .with_label("TianGong Business Analytics (TGBA) Lab - Installer")
+        .with_label("TGBA (TianGong Business Analytics ) Lab - Installer")
         .with_align(Align::Inside | Align::Left);
     title_en.set_label_font(style.font_bold_en);
     title_en.set_label_size(16);
@@ -73,19 +73,8 @@ fn app_footer(_s: &Sender<Message>, parent: &mut Flex, style: &AppStyle) {
     let panel = Flex::default().row();
     parent.fixed(&panel, 24);
 
-    // let mut btn = Button::default().with_label("退出");
-    // panel.fixed(&btn, 40);
-    // btn.set_callback({
-    //     let s = s.clone();
-    //     move |_| {
-    //         s.send(Message::Quit);
-    //     }
-    // });
-
-    // Frame::default();
-
     let mut footer = Frame::default()
-        .with_label("天津工业大学经济与管理学院 © 2023")
+        .with_label("天津工业大学·经济与管理学院 © 2024")
         .with_align(Align::Inside | Align::Right);
 
     footer.set_label_font(style.font_zh);
@@ -208,11 +197,6 @@ impl MyApp {
         myapp.s.send(Message::Step2(Step2Message::Enter {
             target_dir: "D:\\2".to_string(),
         }));
-
-        // myapp.s.send(Message::Step4(Step4Message::Enter(
-        //     super::pyenv::Installer::new(std::path::PathBuf::from("D:\\2".to_string())).unwrap(),
-        // )));
-        // myapp.s.send(Message::Step5(Step5Message::Enter));
 
         myapp
     }

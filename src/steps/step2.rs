@@ -23,8 +23,8 @@ pub enum Step2Message {
     },
     StartJob(usize),
     SuccessJob(usize),
-    JobMessage(usize, String), // (job_idx, message)
     ErrorJob(usize, String),   // (job_idx, errmsg)
+    JobMessage(usize, String), // (job_idx, message)
     Job1Downloading {
         title: String,
         total_size: u64,
@@ -61,7 +61,7 @@ impl Step2Tab {
 
         let mut job_spinners: Vec<LoadingSpinner> = Vec::new();
         let mut job_messages: Vec<Frame> = Vec::new();
-        let mut job1_progress: Progress;
+        let mut download_progress: Progress;
 
         // ---------------- Job0 ------------------------------------------
         let mut job_flex = Flex::default_fill().row();
@@ -82,15 +82,15 @@ impl Step2Tab {
                 job_message.set_label_color(GREY_COLOR);
                 job_messages.push(job_message);
 
-                job1_progress = Progress::default();
-                flex.fixed(&job1_progress, 4);
+                download_progress = Progress::default();
+                flex.fixed(&download_progress, 4);
 
-                job1_progress.set_color(GREY_COLOR);
-                job1_progress.set_frame(fltk::enums::FrameType::FlatBox);
+                download_progress.set_color(GREY_COLOR);
+                download_progress.set_frame(fltk::enums::FrameType::FlatBox);
 
-                job1_progress.set_minimum(0.0);
-                job1_progress.set_maximum(100.0);
-                job1_progress.set_selection_color(style.tgu_color);
+                download_progress.set_minimum(0.0);
+                download_progress.set_maximum(100.0);
+                download_progress.set_selection_color(style.tgu_color);
 
                 flex.end();
             }
@@ -134,7 +134,7 @@ impl Step2Tab {
             sender,
             job_spinners,
             job_messages,
-            job1_progress,
+            job1_progress: download_progress,
             installer: None,
         }
     }
@@ -144,7 +144,7 @@ impl Step2Tab {
     }
 
     pub fn start(&mut self, target_dir: &str) {
-        let mut collector = StatusCollector::new(self.sender.clone());
+        let mut collector = StatusCollector::new(self.sender.clone(), 0);
 
         let installer = match Installer::new(PathBuf::from(target_dir)) {
             Ok(installer) => installer,
@@ -156,30 +156,60 @@ impl Step2Tab {
 
         self.installer = Some(installer.clone());
 
+        collector.job_start();
+    }
+
+    fn on_job_start(&mut self, job_idx: usize) {
+        println!("on_job_start: {job_idx}");
+        let mut collector = StatusCollector::new(self.sender.clone(), job_idx);
+
+        if job_idx >= 2 {
+            collector.done(self.installer.clone().unwrap());
+            return;
+        }
+
+        self.job_spinners[job_idx].start();
+        let message_label = &mut self.job_messages[job_idx];
+        message_label.set_label_color(MESSAGE_COLOR);
+        message_label.redraw();
+
         use tokio::runtime::Handle;
+
+        let installer = self.installer.clone().unwrap();
         let handle = Handle::current();
 
-        std::thread::spawn(move || {
-            // 在新线程内运行异步代码
-            handle.block_on(step_run(installer, collector));
-        });
+        if job_idx == 0 {
+            std::thread::spawn(move || {
+                // 在新线程内运行异步代码
+                handle.block_on(download_worker(installer, collector));
+            });
+        } else if job_idx == 1 {
+            std::thread::spawn(move || {
+                // 在新线程内运行异步代码
+                handle.block_on(venv_worker(installer, collector));
+            });
+        }
+    }
+
+    fn on_job_success(&mut self, job_idx: usize) {
+        self.job_spinners[job_idx].success();
+        let message_label = &mut self.job_messages[job_idx];
+        message_label.set_label_color(MESSAGE_COLOR);
+        message_label.redraw();
+
+        self.sender.send(Message::Step2(Step2Message::StartJob(job_idx + 1)));
+    }
+
+    fn on_job_error(&mut self, job_idx: usize, err: String) {
+        self.job_spinners[job_idx].error();
+        fltk::dialog::alert_default(&err);
     }
 
     pub fn handle_message(&mut self, msg: Step2Message) {
         match msg {
-            Step2Message::StartJob(job_idx) => {
-                self.job_spinners[job_idx].start();
-                let message_label = &mut self.job_messages[job_idx];
-                message_label.set_label_color(MESSAGE_COLOR);
-                message_label.redraw();
-            }
-            Step2Message::SuccessJob(job_idx) => {
-                self.job_spinners[job_idx].success();
-            }
-            Step2Message::ErrorJob(job_idx, err) => {
-                self.job_spinners[job_idx].error();
-                fltk::dialog::alert_default(&err);
-            }
+            Step2Message::StartJob(job_idx) => self.on_job_start(job_idx),
+            Step2Message::SuccessJob(job_idx) => self.on_job_success(job_idx),
+            Step2Message::ErrorJob(job_idx, err) => self.on_job_error(job_idx, err),
             Step2Message::JobMessage(job_idx, message) => {
                 self.job_messages[job_idx].set_label(&message);
             }
@@ -203,18 +233,15 @@ impl Step2Tab {
     }
 }
 
+#[derive(Debug)]
 pub struct StatusCollector {
     job_idx: usize,
     sender: Sender<Message>,
 }
 
 impl StatusCollector {
-    pub fn new(sender: Sender<Message>) -> Self {
-        StatusCollector { job_idx: 0, sender }
-    }
-
-    pub fn next_job(&mut self) {
-        self.job_idx += 1;
+    pub fn new(sender: Sender<Message>, job_idx: usize) -> Self {
+        StatusCollector { job_idx, sender }
     }
 
     pub fn job_start(&mut self) {
@@ -225,7 +252,7 @@ impl StatusCollector {
         self.send(Step2Message::SuccessJob(self.job_idx));
     }
 
-    pub fn job_error(&mut self, err: String) {
+    pub fn job_error(&self, err: String) {
         self.send(Step2Message::ErrorJob(self.job_idx, err));
     }
 
@@ -236,16 +263,6 @@ impl StatusCollector {
     fn send(&self, msg: Step2Message) {
         self.sender.send(Message::Step2(msg));
     }
-
-    // fn write(&self, record: InstallerLogRecord) {
-    //     if let Ok(mut records) = self.logs.lock() {
-    //         records.push(record);
-    //     } else {
-    //         fltk::app::awake_callback(move || {
-    //             fltk::dialog::alert_default("无法获取日志锁");
-    //         });
-    //     }
-    // }
 }
 
 impl StatusUpdate for StatusCollector {
@@ -265,37 +282,58 @@ impl StatusUpdate for StatusCollector {
         let speed = status.speed();
         let percentage = status.percentage();
 
-        fltk::app::awake_callback(move || {
-            sender.send(Message::Step2(Step2Message::Job1Downloading {
-                title: title.clone(),
-                total_size,
-                percentage,
-                speed,
-            }));
-        });
+        // fltk::app::awake_callback(move || {
+        sender.send(Message::Step2(Step2Message::Job1Downloading {
+            title: title.clone(),
+            total_size,
+            percentage,
+            speed,
+        }));
+        // });
     }
 }
 
-pub async fn step_run(mut installer: Installer, mut collecter: StatusCollector) {
-    collecter.job_start();
+pub async fn download_worker(mut installer: Installer, mut collecter: StatusCollector) {
+    println!("download_worker start");
     if let Err(err) = ensure_python_dist(&mut installer, &collecter).await {
         collecter.job_error(format!("下载安装CPython中发生错误: {err}"));
         return;
     };
-    // tokio::time::sleep(tokio::time::Duration::from_millis(5000)).await;
+    println!("download_worker done");
 
     collecter.job_success();
+    // collecter.next_job();
+}
 
-    collecter.next_job();
-
-    collecter.job_start();
-    // tokio::time::sleep(tokio::time::Duration::from_millis(5000)).await;
+pub async fn venv_worker(mut installer: Installer, mut collecter: StatusCollector) {
+    println!("venv_worker start");
     if let Err(err) = ensure_venv(&mut installer, &collecter).await {
         collecter.job_error(format!("创建Python虚拟环境发生错误: {err}"));
         return;
     };
+    println!("venv_worker done");
 
     collecter.job_success();
-
-    collecter.done(installer);
+    // collecter.next_job();
 }
+
+// pub async fn step_run(mut installer: Installer, mut collecter: StatusCollector) {
+//     if collecter.job_idx == 0 {
+//         collecter.job_start();
+//         println!("start111");
+//         if let Err(err) = ensure_python_dist(&mut installer, &collecter).await {
+//             println!("errr");
+//             collecter.job_error(format!("下载安装CPython中发生错误: {err}"));
+//             return;
+//         };
+
+//         println!("job done");
+
+//         collecter.job_success(installer);
+//         collecter.next_job();
+//     } else if collecter.job_idx == 1 {
+
+//     }
+// }
+
+// tokio::time::sleep(tokio::time::Duration::from_millis(5000)).await;

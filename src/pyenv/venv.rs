@@ -46,6 +46,7 @@ pub fn set_platform_info(installer: &mut Installer) -> Result<()> {
     log::info!("临时获取平台信息Python程序脚本: {}", &script_file.display());
 
     let output = Command::new(&installer.venv_python_path)
+        .creation_flags(CREATE_NO_WINDOW)
         .arg(&script_file)
         .stdout(Stdio::piped())
         .output()
@@ -120,6 +121,10 @@ pub async fn ensure_python_dist(
     Ok(())
 }
 
+use std::os::windows::process::CommandExt;
+
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 pub async fn ensure_venv(installer: &Installer, status_updater: &impl StatusUpdate) -> Result<()> {
     let venv_dir = &installer.venv_dir;
     let python_bin = make_python_bin_path(&installer.pydist_dir);
@@ -135,6 +140,7 @@ pub async fn ensure_venv(installer: &Installer, status_updater: &impl StatusUpda
 
     // initialize the virtualenv
     let mut venv_cmd = Command::new(&python_bin);
+    venv_cmd.creation_flags(CREATE_NO_WINDOW);
     venv_cmd.arg("-mvenv");
     venv_cmd.arg(&venv_dir);
 
@@ -162,10 +168,7 @@ pub async fn ensure_venv(installer: &Installer, status_updater: &impl StatusUpda
 
 use super::super::utils::detect_decode;
 
-pub fn venv_python_cmd(
-    installer: &Installer,
-    args: &[&str],
-) -> Result<std::process::Output> {
+pub fn venv_python_cmd(installer: &Installer, args: &[&str]) -> Result<std::process::Output> {
     let python_bin = &installer.venv_python_path;
 
     // 将venv/Script目录添加到环境变量PATH中
@@ -181,6 +184,7 @@ pub fn venv_python_cmd(
     };
 
     let mut cmd = Command::new(&python_bin);
+    cmd.creation_flags(CREATE_NO_WINDOW);
     cmd.env("PATH", path_env.to_string_lossy().as_ref());
     cmd.env("VIRTUAL_ENV", installer.venv_dir.to_string_lossy().as_ref());
     cmd.env_remove("PYTHONHOME");
@@ -228,4 +232,3 @@ pub fn venv_python_cmd(
 
     Ok(output)
 }
-

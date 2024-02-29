@@ -1,13 +1,13 @@
 [package]
 name = "tgba-installer"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 
 build = "build.rs"
 
 [dependencies]
 anyhow = "1.0.75"
-fltk = { version = "1.4.13", features = ["fltk-bundled"] }
+fltk = { version = "1.4.25", features = ["fltk-bundled"] }
 hex = "0.4.3"
 sha2 = "0.10.7"
 zstd = "0.12.4"
@@ -35,13 +35,14 @@ encoding_rs = "0.8.33"
 thiserror = "1.0.50"
 log4rs = "1.2.0"
 log = "0.4.20"
+clap = "4.5.1"
 
 
 [profile.release]
-codegen-units = 1
-strip = "symbols"
+strip = true
 opt-level = "z"
-lto = "fat"
+lto = true
+codegen-units = 1
 panic = "abort"
 
 
@@ -50,7 +51,7 @@ winres = "0.1.12"
 
 
 [package.metadata.winres]
-ProductName = "天工业务数据分析(TGBA)实验环境自助安装程序"
-FileDescription = "天工业务数据分析(TGBA)实验环境自助安装程序"
-OriginalFilename = "TGBA-Installer.exx"
-LegalCopyright = "天津工业大学经济与管理学院 © 2023"
+ProductName = "天工商务数据分析(TGBA)实验平台-安装程序"
+FileDescription = "天工商务数据分析(TGBA)实验平台-安装程序"
+OriginalFilename = "tgba-installer.exe"
+LegalCopyright = "天津工业大学经济与管理学院 © 2024"

@@ -11,6 +11,8 @@ pub fn fix_patches(installer: &Installer) -> Result<()> {
 
     disable_labtensions(installer)?;
 
+    fix_launcher_logo_svg(installer)?;
+
     Ok(())
 }
 
@@ -145,5 +147,25 @@ fn disable_labtensions(installer: &Installer) -> Result<()> {
         bail!("写入文件{}错误: {}", labconfig_path.display(), err);
     }
 
+    Ok(())
+}
+
+
+
+fn fix_launcher_logo_svg(installer: &Installer) -> Result<()> {
+    let mut logo_svg_file = installer.venv_dir.clone();
+    logo_svg_file.extend([
+        "share",
+        "jupyter",
+        "kernels",
+        "python3",
+        "logo-svg.svg",
+    ]);
+
+    if logo_svg_file.exists() {
+        std::fs::remove_file(logo_svg_file)?;
+        log::info!("删除logo-svg.svg，解决launcher无法正常显示Bug");
+    }
+    
     Ok(())
 }

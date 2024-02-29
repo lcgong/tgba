@@ -1,4 +1,5 @@
-tmp\python\python.exe -m venv venv
+tmp\python\python.exe -m venv tmp\venv
 CALL tmp\venv\Scripts\activate.bat
-python -m pip install -r ..\requirements.txt
-python -m pip freeze > requirements.txt
+python -m pip install pip -U 
+python -m pip install -r requirements.txt
+python -m pip freeze > tmp\requirements-new.txt

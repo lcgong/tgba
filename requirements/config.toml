@@ -16,13 +16,13 @@ url = "https://gitee.com/lyucg/python-dists/releases/download/20240224/cpython-3
 checksum = "dba923ee5df8f99db04f599e826be92880746c02247c8d8e4d955d4bc711af11"
 
 [[pypi]]
-name = "清华源"
+name = "清华镜像"
 url = "https://pypi.tuna.tsinghua.edu.cn/simple"
 
 [[pypi]]
-name = "阿里云"
+name = "阿里云镜像"
 url = "http://mirrors.aliyun.com/pypi/simple"
 
 [[pypi]]
-name = "官方PyPI"
+name = "官方PyPI镜像"
 url = "https://pypi.org/simple"

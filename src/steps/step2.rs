@@ -143,10 +143,10 @@ impl Step2Tab {
         &self.panel
     }
 
-    pub fn start(&mut self, target_dir: &str) {
+    pub fn start(&mut self, target_dir: &str, python_version: Option<String>) {
         let mut collector = StatusCollector::new(self.sender.clone(), 0);
 
-        let installer = match Installer::new(PathBuf::from(target_dir)) {
+        let installer = match Installer::new(PathBuf::from(target_dir), python_version) {
             Ok(installer) => installer,
             Err(err) => {
                 collector.job_error(format!("初始化安装参数错误: {err}"));
@@ -197,7 +197,8 @@ impl Step2Tab {
         message_label.set_label_color(MESSAGE_COLOR);
         message_label.redraw();
 
-        self.sender.send(Message::Step2(Step2Message::StartJob(job_idx + 1)));
+        self.sender
+            .send(Message::Step2(Step2Message::StartJob(job_idx + 1)));
     }
 
     fn on_job_error(&mut self, job_idx: usize, err: String) {
@@ -294,46 +295,20 @@ impl StatusUpdate for StatusCollector {
 }
 
 pub async fn download_worker(mut installer: Installer, mut collecter: StatusCollector) {
-    println!("download_worker start");
     if let Err(err) = ensure_python_dist(&mut installer, &collecter).await {
         collecter.job_error(format!("下载安装CPython中发生错误: {err}"));
         return;
     };
-    println!("download_worker done");
-
     collecter.job_success();
-    // collecter.next_job();
 }
 
 pub async fn venv_worker(mut installer: Installer, mut collecter: StatusCollector) {
-    println!("venv_worker start");
     if let Err(err) = ensure_venv(&mut installer, &collecter).await {
         collecter.job_error(format!("创建Python虚拟环境发生错误: {err}"));
         return;
     };
-    println!("venv_worker done");
 
     collecter.job_success();
-    // collecter.next_job();
 }
-
-// pub async fn step_run(mut installer: Installer, mut collecter: StatusCollector) {
-//     if collecter.job_idx == 0 {
-//         collecter.job_start();
-//         println!("start111");
-//         if let Err(err) = ensure_python_dist(&mut installer, &collecter).await {
-//             println!("errr");
-//             collecter.job_error(format!("下载安装CPython中发生错误: {err}"));
-//             return;
-//         };
-
-//         println!("job done");
-
-//         collecter.job_success(installer);
-//         collecter.next_job();
-//     } else if collecter.job_idx == 1 {
-
-//     }
-// }
 
 // tokio::time::sleep(tokio::time::Duration::from_millis(5000)).await;

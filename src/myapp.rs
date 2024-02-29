@@ -32,6 +32,7 @@ pub struct MyApp {
     step_group: Group,
     step_objs: Vec<Box<dyn Any>>,
     main_win: DoubleWindow,
+    python_version: Option<String>,
 }
 
 #[derive(Debug)]
@@ -51,14 +52,14 @@ fn app_title(parent: &mut Flex, style: &AppStyle) {
     parent.fixed(&panel, 42);
 
     let mut title_zh = Frame::default()
-        .with_label("TGBA（商务数据分析）实验平台 - 安装程序")
+        .with_label("天工商务数据分析（TGBA）实验平台 - 安装程序")
         .with_align(Align::Inside | Align::Left);
     title_zh.set_label_font(style.font_bold_zh);
     title_zh.set_label_size(22);
     title_zh.set_label_color(style.tgu_color);
 
     let mut title_en = Frame::default()
-        .with_label("TGBA (TianGong Business Analytics ) Lab - Installer")
+        .with_label("TianGong Business Analytics Lab - Installer")
         .with_align(Align::Inside | Align::Left);
     title_en.set_label_font(style.font_bold_en);
     title_en.set_label_size(16);
@@ -87,7 +88,7 @@ fn app_footer(_s: &Sender<Message>, parent: &mut Flex, style: &AppStyle) {
 }
 
 impl MyApp {
-    pub fn new() -> Self {
+    pub fn new(python_version: Option<String>) -> Self {
         let app = fltk::app::App::default().with_scheme(fltk::app::Scheme::Gtk);
 
         app.load_system_fonts();
@@ -158,6 +159,7 @@ impl MyApp {
             navbar,
             step_objs,
             main_win,
+            python_version,
         };
 
         myapp.main_win.set_callback({
@@ -193,10 +195,10 @@ impl MyApp {
             }
         });
 
-        // myapp.s.send(Message::Step1(Step1Message::Enter));
-        myapp.s.send(Message::Step2(Step2Message::Enter {
-            target_dir: "D:\\2".to_string(),
-        }));
+        myapp.s.send(Message::Step1(Step1Message::Enter));
+        // myapp.s.send(Message::Step2(Step2Message::Enter {
+        //     target_dir: "D:\\2".to_string(),
+        // }));
 
         myapp
     }
@@ -221,6 +223,8 @@ impl MyApp {
     }
 
     pub fn run(&mut self) {
+        let python_version = self.python_version.clone();
+
         while self.app.wait() {
             let Some(msg) = self.r.recv() else {
                 continue;
@@ -244,7 +248,7 @@ impl MyApp {
                 Step2(Step2Message::Enter { target_dir }) => {
                     self.set_step(1);
                     let step_tab = self.get_step_mut::<Step2Tab>();
-                    step_tab.start(&target_dir);
+                    step_tab.start(&target_dir, python_version.clone());
                     // s.send(Step2(Step2Message::Start));
                 }
                 Step2(Step2Message::Done(installer)) => {

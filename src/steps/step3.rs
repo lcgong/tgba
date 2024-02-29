@@ -74,7 +74,7 @@ impl Step3Tab {
         let mut job_message: Frame;
         let mut job_percent: Frame;
         let mut downloading_message: Frame;
-        let downloading_speed: Frame;
+        let mut downloading_speed: Frame;
         let mut downloading_progress: Progress;
 
         // ---------------- Job0 ------------------------------------------
@@ -142,9 +142,9 @@ impl Step3Tab {
                     downloading_speed = Frame::default()
                         .with_label("")
                         .with_align(Align::Inside | Align::Right);
-                    downloading_message.set_label_size(12);
-                    downloading_message.set_label_color(MESSAGE_COLOR);
-                    msg_flex.fixed(&downloading_message, 80);
+                    downloading_speed.set_label_size(12);
+                    downloading_speed.set_label_color(MESSAGE_COLOR);
+                    msg_flex.fixed(&downloading_speed, 80);
 
                     msg_flex.end();
                 }
@@ -191,7 +191,7 @@ impl Step3Tab {
 
     pub fn start(&mut self, installer: Installer) {
         let handle = tokio::runtime::Handle::current();
-        let collector = Step4Collector::new(self.sender.clone());
+        let collector = Step3Collector::new(self.sender.clone());
 
         self.job_spinner.start();
 
@@ -208,7 +208,7 @@ impl Step3Tab {
         requirement_idx: usize,
     ) {
         let handle = tokio::runtime::Handle::current();
-        let collector = Step4Collector::new(self.sender.clone());
+        let collector = Step3Collector::new(self.sender.clone());
 
         std::thread::spawn(move || {
             // 在新线程内运行异步代码
@@ -319,19 +319,19 @@ impl Step3Tab {
                 self.on_downloading_status(title, total_size, percentage, speed);
             }
             _ => {
-                unimplemented!()
+                unimplemented!("unknow msg: {:?}", msg)
             }
         }
     }
 }
 
-pub struct Step4Collector {
+pub struct Step3Collector {
     sender: Sender<Message>,
 }
 
-impl Step4Collector {
+impl Step3Collector {
     pub fn new(sender: Sender<Message>) -> Self {
-        Step4Collector { sender }
+        Step3Collector { sender }
     }
 
     pub fn job_error(&mut self, err: String) {
@@ -347,7 +347,7 @@ impl Step4Collector {
     }
 }
 
-impl StatusUpdate for Step4Collector {
+impl StatusUpdate for Step3Collector {
     fn message(&self, msg: &str) {
         self.send(Step3Message::JobMessage(msg.to_string()));
     }
@@ -362,7 +362,7 @@ impl StatusUpdate for Step4Collector {
     }
 }
 
-pub async fn prepare_downloading(mut installer: Installer, mut collector: Step4Collector) {
+pub async fn prepare_downloading(mut installer: Installer, mut collector: Step3Collector) {
     use super::super::pyenv::{prepare_requirements, set_platform_info};
 
     if let Err(err) = set_platform_info(&mut installer) {
@@ -383,7 +383,7 @@ pub async fn prepare_downloading(mut installer: Installer, mut collector: Step4C
 
 pub async fn download_worker(
     installer: Installer,
-    collector: Step4Collector,
+    collector: Step3Collector,
     requirements: Vec<Requirement>,
     requirement_idx: usize,
 ) {

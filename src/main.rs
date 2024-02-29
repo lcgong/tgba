@@ -13,8 +13,9 @@ pub mod style;
 pub mod utils;
 
 use anyhow::Result;
+use clap;
 
-fn init_log() -> Result<()> {
+fn init_log(prog: &str) -> Result<()> {
     use log::LevelFilter;
     use log4rs::append::console::ConsoleAppender;
     use log4rs::append::file::FileAppender;
@@ -23,7 +24,7 @@ fn init_log() -> Result<()> {
 
     let mut log_path: std::path::PathBuf = std::env::current_exe()?;
     log_path.pop();
-    log_path.push("TGBA安装日志.log.txt");
+    log_path.push(format!("{}.安装日志[可删除].txt", prog));
 
     let logfile = FileAppender::builder()
         .encoder(Box::new(PatternEncoder::new("{d} {l} {t} - {m}{n}")))
@@ -50,9 +51,35 @@ fn init_log() -> Result<()> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    init_log()?;
+    let prog = std::env::args().nth(0).unwrap();
+    let prog = std::path::Path::new(&prog)
+        .file_stem()
+        .unwrap()
+        .to_str()
+        .unwrap();
+    init_log(prog)?;
 
-    let mut app = myapp::MyApp::new();
+    let args = clap::Command::new("tgba-installer")
+        .arg(
+            clap::Arg::new("py38")
+                .long("3.8")
+                .action(clap::ArgAction::SetTrue)
+                .help("python 3.8"),
+        )
+        .get_matches();
+
+    let flag_legacy_py38 = args.get_flag("py38");
+
+    dbg!(flag_legacy_py38);
+
+    println!("{:?}", prog);
+
+    let mut app = if flag_legacy_py38 {
+        myapp::MyApp::new(Some("3.8".to_string()))
+    } else {
+        myapp::MyApp::new(None)
+    };
+
     app.run();
 
     Ok(())

@@ -153,7 +153,7 @@ async fn download_link(
         installer,
         status_updater,
         link.url(),
-        &format!("从{}下载{}", pypi.name(), link.file_name()),
+        &format!("从{}下载 {}", pypi.name(), link.file_name()),
     )
     .await?;
 

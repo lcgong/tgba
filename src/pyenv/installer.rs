@@ -28,11 +28,11 @@ pub struct Installer {
 }
 
 impl Installer {
-    pub fn new(target_dir: PathBuf) -> Result<Self, Error> {
+    pub fn new(target_dir: PathBuf, python_version: Option<String>) -> Result<Self, Error> {
         let tgba_dir = target_dir.join(".tgba_platform");
 
         let config = Config::load()?;
-        let cpython_source = config.get_cpytion_source()?;
+        let cpython_source = config.get_cpytion_source(python_version)?;
 
         let python_version = parse_version(cpython_source.cpython_version())?;
         let nums = &python_version.release;

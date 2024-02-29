@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{anyhow, Result};
 use serde_derive::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -35,18 +35,34 @@ impl Config {
         &self.pip_version
     }
 
-    pub fn get_cpytion_source(&self) -> Result<&CPythonDistSource> {
-        use super::utils::get_windows_major_versoin;
-        let win_major = get_windows_major_versoin()?;
-        let python_version = if win_major > 7 { "3.12" } else { "3.8" };
-
-        for dist in &self.cpython {
-            if dist.python_version == python_version {
-                return Ok(dist);
+    pub fn get_cpytion_source(
+        &self,
+        mut python_version: Option<String>,
+    ) -> Result<&CPythonDistSource> {
+        if python_version.is_none() {
+            use super::utils::get_windows_major_versoin;
+            let win_major = get_windows_major_versoin()?;
+            if win_major == 7 {
+                python_version = Some("3.8".to_string());
             }
         }
 
-        bail!("在安装配置文件没找到{}下载信息", python_version)
+        if self.cpython.is_empty() {
+            return Err(anyhow!("在配置文件无[[cpython]]配置信息"));
+        }
+
+        match python_version {
+            Some(python_version) => {
+                for dist in &self.cpython {
+                    if dist.python_version == python_version {
+                        return Ok(dist);
+                    }
+                }
+
+                Err(anyhow!("在安装配置文件没找到{}下载信息", python_version))
+            }
+            None => Ok(self.cpython.first().unwrap()),
+        }
     }
 
     pub fn get_pypi_mirrors(&self) -> &[PyPIMirror] {
@@ -56,7 +72,6 @@ impl Config {
     pub fn obligated_requirements(&self) -> &[String] {
         &self.obligated_requirements
     }
-
 }
 
 impl PyPIMirror {

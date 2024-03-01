@@ -1,4 +1,4 @@
-TGBA（TianGong Business Analytics）为高校商务数据分析教学提供了一个方便、稳定的JupyterLab环境。该项目专门开发了一套TGBA平台的安装程序，旨在简化Python和JupyterLab的安装和配置过程，以提供更稳定的安装方式，使师生能够更轻松地学习和使用Python进行数据分析。
+[TGBA（TianGong Business Analytics）](https://lyucg.gitee.io/tgba)为高校商务数据分析教学提供了一个方便、稳定的JupyterLab环境。该项目专门开发了一套TGBA平台的安装程序，旨在简化Python和JupyterLab的安装和配置过程，以提供更稳定的安装方式，使师生能够更轻松地学习和使用Python进行数据分析。
 
 TGBA实验平台的特点如下：
 

@@ -2,10 +2,11 @@ numpy
 scipy
 sympy
 
-pandas
-geopandas
 openpyxl
 xlrd
+#python-calamine
+pandas
+geopandas
 
 matplotlib
 seaborn

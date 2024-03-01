@@ -39,10 +39,10 @@ clap = "4.5.1"
 
 
 [profile.release]
-strip = true
-opt-level = "z"
-lto = true
 codegen-units = 1
+lto = "fat"
+strip = "symbols"
+opt-level = "z"
 panic = "abort"
 
 

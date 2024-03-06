@@ -5,6 +5,8 @@
 * 从 https://github.com/indygreg/python-build-standalone/releases 
 下载 Python独立发行包，复制到该目录下`tmp`内
 
+所选发行包后缀为`x86_64-pc-windows-msvc-shared-install_only`
+
 * 在cmd进入该目录
 
 * 将下载的发行版拷贝到tmp目录下，然后在`tmp`下解压出`python`目录

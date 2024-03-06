@@ -4,10 +4,16 @@ obligated_requirements = ["setuptools>=68.0.0", "wheel>=0.38.0"]
 
 # 获取CPython独立打包 https://github.com/indygreg/python-build-standalone/releases
 [[cpython]]
-python_version = "3.12"
-version = "3.12.2+20240224"
-url = "https://gitee.com/lyucg/python-dists/releases/download/20240224/cpython-3.12.2+20240224-x86_64-pc-windows-msvc-shared-install_only.tar.gz"
-checksum = "1e5655a6ccb1a64a78460e4e3ee21036c70246800f176a6c91043a3fe3654a3b"
+python_version = "3.11"
+version = "3.11.8+20240224"
+url = "https://gitee.com/lyucg/python-dists/releases/download/20240224/cpython-3.11.8+20240224-x86_64-pc-windows-msvc-shared-install_only.tar.gz"
+checksum = "b618f1f047349770ee1ef11d1b05899840abd53884b820fd25c7dfe2ec1664d4"
+
+# [[cpython]]
+# python_version = "3.12"
+# version = "3.12.2+20240224"
+# url = "https://gitee.com/lyucg/python-dists/releases/download/20240224/cpython-3.12.2+20240224-x86_64-pc-windows-msvc-shared-install_only.tar.gz"
+# checksum = "1e5655a6ccb1a64a78460e4e3ee21036c70246800f176a6c91043a3fe3654a3b"
 
 [[cpython]]
 python_version = "3.8"

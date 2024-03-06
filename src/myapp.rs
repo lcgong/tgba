@@ -101,10 +101,12 @@ impl MyApp {
 
         let (s, r) = fltk::app::channel::<Message>();
 
+        let version = env!("CARGO_PKG_VERSION");
+
         let mut main_win = DoubleWindow::default()
             .with_size(700, 300)
             .center_screen()
-            .with_label("TGBA安装程序");
+            .with_label(format!("TGBA安装程序 v{}", version).as_str());
 
         // main_win.begin();
         // let frame =Frame::default();

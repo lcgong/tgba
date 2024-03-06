@@ -51,6 +51,16 @@ fn init_log(prog: &str) -> Result<()> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let _result = std::panic::catch_unwind(|| {
+        std::panic::set_hook(Box::new(|panic_info| {
+            use std::io::Write;
+
+            let mut file = std::fs::File::create("tgba-installer.程序意外退出.log")
+                .expect("Failed to create panic.log");
+            writeln!(file, "Panic: {}", panic_info).expect("Failed to write to panic log");
+        }));
+    });
+
     let prog = std::env::args().nth(0).unwrap();
     let prog = std::path::Path::new(&prog)
         .file_stem()

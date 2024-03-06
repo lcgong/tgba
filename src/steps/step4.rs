@@ -81,7 +81,7 @@ impl Step4Tab {
         let mut job_messages: Vec<Frame> = Vec::new();
 
         render_job_status(
-            "安装Python本地程序包",
+            "安装Python本地程序包（时间较长，耐心等候）",
             &mut panel,
             &mut job_spinners,
             &mut job_messages,

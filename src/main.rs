@@ -45,21 +45,22 @@ fn init_log(prog: &str) -> Result<()> {
         )?;
 
     log4rs::init_config(config)?;
+    log::info!("log initialized");
 
     Ok(())
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let _result = std::panic::catch_unwind(|| {
-        std::panic::set_hook(Box::new(|panic_info| {
-            use std::io::Write;
+    // let _result = std::panic::catch_unwind(|| {
+    //     std::panic::set_hook(Box::new(|panic_info| {
+    //         use std::io::Write;
 
-            let mut file = std::fs::File::create("tgba-installer.程序意外退出.log")
-                .expect("Failed to create panic.log");
-            writeln!(file, "Panic: {}", panic_info).expect("Failed to write to panic log");
-        }));
-    });
+    //         let mut file = std::fs::File::create("tgba-installer.程序意外退出.log")
+    //             .expect("Failed to create panic.log");
+    //         writeln!(file, "Panic: {}", panic_info).expect("Failed to write to panic log");
+    //     }));
+    // });
 
     let prog = std::env::args().nth(0).unwrap();
     let prog = std::path::Path::new(&prog)
@@ -67,6 +68,7 @@ async fn main() -> Result<()> {
         .unwrap()
         .to_str()
         .unwrap();
+
     init_log(prog)?;
 
     let args = clap::Command::new("tgba-installer")
@@ -77,13 +79,9 @@ async fn main() -> Result<()> {
                 .help("python 3.8"),
         )
         .get_matches();
-
     let flag_legacy_py38 = args.get_flag("py38");
 
-    dbg!(flag_legacy_py38);
-
-    println!("{:?}", prog);
-
+    log::info!("start creating app");
     let mut app = if flag_legacy_py38 {
         myapp::MyApp::new(Some("3.8".to_string()))
     } else {
@@ -95,19 +93,4 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-// pub async fn cmd_main() -> Result<()> {
-//     use pyenv::Installer;
-//     let target_dir = std::env::current_dir()?;
 
-//     use pyenv::{create_winlnk, fix_patches};
-//     use pyenv::{ensure_python_venv, install_requirements};
-
-//     let mut installer = Installer::new(target_dir)?;
-
-//     ensure_python_venv(&mut installer).await?;
-//     install_requirements(&installer).await?;
-//     create_winlnk(&installer, &installer.target_dir())?;
-//     fix_patches(&installer)?;
-
-//     Ok(())
-// }

@@ -1,55 +1,31 @@
-use fltk::{
-    app::font_index,
-    enums::{Color, Font},
-};
+use fltk::enums::{Color, Font};
 
-pub struct AppStyle {
-    pub font_bold_zh: Font,
-    pub font_bold_en: Font,
-    pub font_zh: Font,
-    pub font_en: Font,
-    pub tgu_color: Color,
-    pub darkgrey: Color,
-}
+pub const COLOR_TGU: Color = Color::from_rgb(113, 36, 107);
+pub const COLOR_DARKGREY: Color = Color::from_rgb(80, 80, 80);
+pub const COLOR_GREY: Color = Color::from_rgb(200, 200, 200);
+pub const COLOR_MESSAGE: Color = Color::from_rgb(10, 10, 10);
 
-impl Default for AppStyle {
-    fn default() -> Self {
-        // let fonts = fltk::app::fonts();
-        // for f in fonts {
-        //     println!("font: {}", f);
-        // }
-        let font_bold_en = { Font::by_index(font_index("BArial").unwrap()) };
-        let font_en = { Font::by_index(font_index(" Arial").unwrap()) };
-        let font_bold_zh = {
-            if let Some(idx) = font_index("B微软雅黑") {
-                Font::by_index(idx)
-            } else if let Some(idx) = font_index("B黑体") {
-                Font::by_index(idx)
-            } else {
-                panic!("未找到系统中文字体")
-            }
-        };
+pub fn set_gui_font() {
+    let windir = match std::env::var("WINDIR") {
+        Ok(value) => value,
+        Err(_) => "C:\\Windows".to_string(),
+    };
 
-        let font_zh = {
-            if let Some(idx) = font_index(" 微软雅黑") { 
-                Font::by_index(idx)
-            } else if let Some(idx) = font_index(" 黑体") {
-                Font::by_index(idx)
-            } else {
-                panic!("未找到系统中文字体")
-            }
-        };
+    let font_dir = std::path::Path::new(&windir).join("Fonts");
+    if !font_dir.exists() {
+        log::error!("no font_dir: {}", font_dir.to_string_lossy());
+        return;
+    }
 
-        let tgu_color = Color::from_rgb(113, 36, 107);
-        let darkgrey = Color::from_rgb(80, 80, 80);
-
-        Self {
-            font_bold_zh,
-            font_bold_en,
-            font_zh,
-            font_en,
-            tgu_color,
-            darkgrey,
+    let font_msyh_file = font_dir.join("msyh.ttc");
+    if font_msyh_file.exists() {
+        if let Ok(font) = Font::load_font(&font_msyh_file) {
+            Font::set_font(Font::Helvetica, &font);
+            log::info!("set font: {}", font_msyh_file.to_string_lossy())
+        } else {
+            log::error!("can not load font: {}", font_msyh_file.to_string_lossy())
         }
+    } else {
+        log::error!("no font: {}", font_dir.to_string_lossy());
     }
 }

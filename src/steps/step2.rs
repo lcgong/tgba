@@ -1,6 +1,6 @@
 use fltk::{
     app::Sender,
-    enums::{Align, Color},
+    enums::Align,
     frame::Frame,
     group::{Flex, Group},
     misc::Progress,
@@ -13,7 +13,7 @@ use super::super::{
     pyenv::{ensure_python_dist, ensure_venv, Installer},
     status::{DownloadingStats, LoadingSpinner, StatusUpdate},
     steps::utils::format_scale,
-    style::AppStyle,
+    style,
 };
 
 #[derive(Debug)]
@@ -43,11 +43,8 @@ pub struct Step2Tab {
     installer: Option<Installer>,
 }
 
-static GREY_COLOR: Color = Color::from_rgb(200, 200, 200);
-static MESSAGE_COLOR: Color = Color::from_rgb(10, 10, 10);
-
 impl Step2Tab {
-    pub fn new(group: &mut Group, style: &AppStyle, sender: Sender<Message>) -> Self {
+    pub fn new(group: &mut Group, sender: Sender<Message>) -> Self {
         let mut panel = Flex::default_fill().column();
 
         let job_title = ["下载安装Python", "创建Python虚拟环境"];
@@ -79,18 +76,18 @@ impl Step2Tab {
                     .with_label(job_title[0])
                     .with_align(Align::Inside | Align::Left);
                 job_message.set_label_size(16);
-                job_message.set_label_color(GREY_COLOR);
+                job_message.set_label_color(style::COLOR_GREY);
                 job_messages.push(job_message);
 
                 download_progress = Progress::default();
                 flex.fixed(&download_progress, 4);
 
-                download_progress.set_color(GREY_COLOR);
+                download_progress.set_color(style::COLOR_GREY);
                 download_progress.set_frame(fltk::enums::FrameType::FlatBox);
 
                 download_progress.set_minimum(0.0);
                 download_progress.set_maximum(100.0);
-                download_progress.set_selection_color(style.tgu_color);
+                download_progress.set_selection_color(style::COLOR_TGU);
 
                 flex.end();
             }
@@ -115,7 +112,7 @@ impl Step2Tab {
                     .with_label(job_title[1])
                     .with_align(Align::Inside | Align::Left);
                 job_message.set_label_size(16);
-                job_message.set_label_color(GREY_COLOR);
+                job_message.set_label_color(style::COLOR_GREY);
                 job_messages.push(job_message);
 
                 flex.fixed(&Frame::default(), 4);
@@ -128,6 +125,8 @@ impl Step2Tab {
         Frame::default();
 
         panel.end();
+
+        log::info!("step2 panel created");
 
         Step2Tab {
             panel,
@@ -170,7 +169,7 @@ impl Step2Tab {
 
         self.job_spinners[job_idx].start();
         let message_label = &mut self.job_messages[job_idx];
-        message_label.set_label_color(MESSAGE_COLOR);
+        message_label.set_label_color(style::COLOR_MESSAGE);
         message_label.redraw();
 
         use tokio::runtime::Handle;
@@ -194,7 +193,7 @@ impl Step2Tab {
     fn on_job_success(&mut self, job_idx: usize) {
         self.job_spinners[job_idx].success();
         let message_label = &mut self.job_messages[job_idx];
-        message_label.set_label_color(MESSAGE_COLOR);
+        message_label.set_label_color(style::COLOR_MESSAGE);
         message_label.redraw();
 
         self.sender

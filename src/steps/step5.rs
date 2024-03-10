@@ -7,7 +7,7 @@ use fltk::{
     prelude::{GroupExt, WidgetBase, WidgetExt},
 };
 
-use super::super::{myapp::Message, pyenv::Installer, style::AppStyle};
+use super::super::{myapp::Message, pyenv::Installer, style};
 
 #[derive(Debug)]
 pub enum Step5Message {
@@ -22,7 +22,7 @@ pub struct Step5Tab {
 }
 
 impl Step5Tab {
-    pub fn new(group: &mut Group, _style: &AppStyle, sender: Sender<Message>) -> Self {
+    pub fn new(group: &mut Group, sender: Sender<Message>) -> Self {
         let mut panel = Flex::default_fill().column();
 
         panel.resize(group.x(), group.y(), group.w(), group.h());
@@ -35,6 +35,8 @@ impl Step5Tab {
         let mut message = Frame::default()
             .with_label("恭喜，TGBA实验平台已安装完成")
             .with_align(Align::Inside | Align::Center);
+
+        message.set_label_color(style::COLOR_TGU);
         message.set_label_size(20);
 
         panel.fixed(&Frame::default(), 25);
@@ -42,6 +44,7 @@ impl Step5Tab {
         let mut btn_flex = Flex::default_fill().row();
         Frame::default();
         let mut done_btn = Button::default().with_label("关闭安装程序");
+        done_btn.set_label_color(style::COLOR_TGU);
         // done_btn.set_frame(fltk::enums::FrameType::ShadowFrame);
         done_btn.set_label_size(18);
         btn_flex.fixed(&done_btn, 120);
@@ -57,6 +60,8 @@ impl Step5Tab {
         Frame::default();
 
         panel.end();
+
+        log::info!("step5 panel created");
 
         Step5Tab {
             panel,

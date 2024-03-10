@@ -20,7 +20,7 @@ use super::{
         step4::{Step4Message, Step4Tab},
         step5::{Step5Message, Step5Tab},
     },
-    style::AppStyle,
+    style,
 };
 
 pub struct MyApp {
@@ -45,7 +45,7 @@ pub enum Message {
     Quit,
 }
 
-fn app_title(parent: &mut Flex, style: &AppStyle) {
+fn app_title(parent: &mut Flex) {
     use fltk::enums::Align;
 
     let panel = Flex::default().column();
@@ -54,59 +54,59 @@ fn app_title(parent: &mut Flex, style: &AppStyle) {
     let mut title_zh = Frame::default()
         .with_label("天工商务数据分析（TGBA）实验平台 - 安装程序")
         .with_align(Align::Inside | Align::Left);
-    title_zh.set_label_font(style.font_bold_zh);
     title_zh.set_label_size(22);
-    title_zh.set_label_color(style.tgu_color);
+    title_zh.set_label_color(style::COLOR_TGU);
 
     let mut title_en = Frame::default()
         .with_label("TianGong Business Analytics Lab - Installer")
         .with_align(Align::Inside | Align::Left);
-    title_en.set_label_font(style.font_bold_en);
     title_en.set_label_size(16);
-    title_en.set_label_color(style.darkgrey);
+    title_en.set_label_color(style::COLOR_DARKGREY);
 
     panel.end();
 }
 
-fn app_footer(_s: &Sender<Message>, parent: &mut Flex, style: &AppStyle) {
+fn app_footer(parent: &mut Flex) {
     use fltk::enums::Align;
 
     let panel = Flex::default().row();
     parent.fixed(&panel, 24);
 
     let mut footer = Frame::default()
-        .with_label("天津工业大学·经济与管理学院 © 2024")
+        .with_label("天津工业大学 · 经济与管理学院 © 2024")
         .with_align(Align::Inside | Align::Right);
 
-    footer.set_label_font(style.font_zh);
     footer.set_label_size(12);
-    footer.set_label_color(style.darkgrey);
+    footer.set_label_color(style::COLOR_DARKGREY);
 
     panel.end()
-
-    // parent.fixed(&footer, 18);
 }
 
 impl MyApp {
     pub fn new(python_version: Option<String>) -> Self {
+        log::info!("new myapp: 1");
         let app = fltk::app::App::default().with_scheme(fltk::app::Scheme::Gtk);
 
-        app.load_system_fonts();
-        let style = AppStyle::default();
+        log::info!("new myapp: 1.1");
+        style::set_gui_font();
+
+        log::info!("new myapp: 2");
 
         fltk::app::background(255, 255, 255);
         fltk::app::set_visible_focus(false);
-        fltk::app::set_font(style.font_zh);
         fltk::app::set_font_size(12);
 
         let (s, r) = fltk::app::channel::<Message>();
 
         let version = env!("CARGO_PKG_VERSION");
-
+        let prog_title = format!("TGBA安装程序 v{}", version);
         let mut main_win = DoubleWindow::default()
             .with_size(700, 300)
             .center_screen()
-            .with_label(format!("TGBA安装程序 v{}", version).as_str());
+            .with_label(&prog_title);
+
+        // log::info!("windows title: {}", prog_title);
+        // log::info!("new myapp: 4");
 
         // main_win.begin();
         // let frame =Frame::default();
@@ -115,6 +115,7 @@ impl MyApp {
         match IcoImage::from_data(RESOURCES.get_app_icon()) {
             Ok(icon) => main_win.set_icon(Some(icon)),
             Err(err) => {
+                log::error!("error in new myapp: {}", err);
                 fltk::dialog::alert_default(&format!("{err}"));
             }
         };
@@ -122,32 +123,22 @@ impl MyApp {
         let mut main_flex = Flex::default_fill().column();
         main_flex.set_margins(10, 10, 10, 10);
 
-        app_title(&mut main_flex, &style);
+        app_title(&mut main_flex);
 
-        let navbar = PhaseNavBar::new(&style);
+        let navbar = PhaseNavBar::new();
         main_flex.fixed(navbar.navbar_row(), 40);
 
         let mut step_group = Group::default_fill();
         let step_objs: Vec<Box<dyn Any>> = vec![
-            Box::new(Step1Tab::new(&mut step_group, &style, s.clone())),
-            Box::new(Step2Tab::new(&mut step_group, &style, s.clone())),
-            Box::new(Step3Tab::new(
-                main_win.clone(),
-                &mut step_group,
-                &style,
-                s.clone(),
-            )),
-            Box::new(Step4Tab::new(&mut step_group, &style, s.clone())),
-            Box::new(Step5Tab::new(
-                // logs.clone(),
-                &mut step_group,
-                &style,
-                s.clone(),
-            )),
+            Box::new(Step1Tab::new(&mut step_group, s.clone())),
+            Box::new(Step2Tab::new(&mut step_group, s.clone())),
+            Box::new(Step3Tab::new(main_win.clone(), &mut step_group, s.clone())),
+            Box::new(Step4Tab::new(&mut step_group, s.clone())),
+            Box::new(Step5Tab::new(&mut step_group, s.clone())),
         ];
         step_group.end();
 
-        app_footer(&s, &mut main_flex, &style);
+        app_footer(&mut main_flex);
 
         main_win.end();
         main_win.show();
@@ -197,6 +188,8 @@ impl MyApp {
             }
         });
 
+        log::info!("new myapp: 10");
+
         myapp.s.send(Message::Step1(Step1Message::Enter));
         // myapp.s.send(Message::Step2(Step2Message::Enter {
         //     target_dir: "D:\\2".to_string(),
@@ -226,6 +219,8 @@ impl MyApp {
 
     pub fn run(&mut self) {
         let python_version = self.python_version.clone();
+
+        log::info!("start app event loop");
 
         while self.app.wait() {
             let Some(msg) = self.r.recv() else {

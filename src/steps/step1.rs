@@ -11,7 +11,7 @@ use fltk::{
     prelude::{GroupExt, InputExt, WidgetBase, WidgetExt},
 };
 
-use super::super::{myapp::Message, style::AppStyle};
+use super::super::{myapp::Message, style};
 
 use fltk::input::Input;
 
@@ -32,11 +32,7 @@ pub struct Step1Tab {
 impl Step1Tab {
     const DEFAUL_TARGET_DIR: &'static str = r#"C:\TGBAWork"#;
 
-    pub fn new(
-        group: &mut Group,
-        style: &AppStyle,
-        sender: Sender<Message>,
-    ) -> Self {
+    pub fn new(group: &mut Group, sender: Sender<Message>) -> Self {
         let mut panel = Flex::default_fill().column();
 
         panel.resize(group.x(), group.y(), group.w(), group.h());
@@ -47,17 +43,17 @@ impl Step1Tab {
         Frame::default();
 
         let mut choose_btn: Button;
-        let mut start_btn: Button;
         let mut target_dir_input: Input;
+        let start_btn: Button;
 
         let mut input_row = Flex::default().row();
         {
             panel.fixed(&input_row, 30);
 
-            let mut label = Frame::default()
+            let label = Frame::default()
                 .with_label("安装目标目录：")
                 .with_align(Align::Inside | Align::Left);
-            label.set_label_font(style.font_zh);
+            // label.set_label_font(style.font_zh);
             input_row.fixed(&label, 110);
 
             target_dir_input = Input::default();
@@ -66,8 +62,8 @@ impl Step1Tab {
             target_dir_input.set_text_size(16);
 
             choose_btn = Button::default().with_label("选择..");
-            choose_btn.set_label_font(style.font_bold_zh);
-            choose_btn.set_label_color(style.darkgrey);
+            // choose_btn.set_label_font(style.font_bold_zh);
+            choose_btn.set_label_color(style::COLOR_DARKGREY);
             choose_btn.set_size(60, choose_btn.height());
             input_row.fixed(&choose_btn, 60);
 
@@ -84,7 +80,7 @@ impl Step1Tab {
             hints_row.fixed(&label, 110);
 
             hints_label = Frame::default().with_align(Align::Inside | Align::Left);
-            hints_label.set_label_color(style.darkgrey);
+            hints_label.set_label_color(style::COLOR_DARKGREY);
 
             let label = Frame::default();
             hints_row.fixed(&label, 60);
@@ -102,7 +98,7 @@ impl Step1Tab {
             Frame::default();
 
             start_btn = Button::default().with_label("开始安装");
-            start_btn.set_label_font(style.font_bold_zh);
+            // start_btn.set_label_font(style.font_bold_zh);
             btn_row.fixed(&start_btn, 120);
 
             let frame = Frame::default();
@@ -124,6 +120,7 @@ impl Step1Tab {
         };
 
         {
+            // log::info!("开始检查系统剩余可用空间");
             let disk_freespace = create_available_space_map();
             let mut input = obj.target_dir_input.clone();
             let mut hints_label = hints_label.clone();
@@ -141,7 +138,15 @@ impl Step1Tab {
 
                 let path = PathBuf::from(input.value());
 
-                dlg.set_directory(&path).unwrap();
+                if let Err(err) = dlg.set_directory(&path) {
+                    log::error!("Error in selecting target directory: {}", err.to_string());
+                    eprintln!("{}", err);
+                }
+                // match dlg.set_directory(&path) {
+                //     Ok(_) => t,
+                //     Err(_) => todo!(),
+                // }
+                // dlg.set_directory(&path).unwrap();
                 dlg.set_option(FileDialogOptions::NewFolder);
                 dlg.show();
 
@@ -166,6 +171,8 @@ impl Step1Tab {
             }
         });
 
+        log::info!("step1 panel created");
+
         obj
     }
 
@@ -184,11 +191,9 @@ fn check_availabel_space(
     map: &HashMap<OsString, f32>,
 ) -> bool {
     let path = PathBuf::from(path);
-    // let hints = check_availabel_space(&disk_freespace, &path);
-
     use std::path::Component::Prefix;
 
-    let expected_space = 2.5f32;
+    let expected_space = 2.9f32;
 
     if let Some(Prefix(prefix)) = path.components().next() {
         let driver = prefix.as_os_str().to_os_string();
@@ -235,6 +240,6 @@ fn create_available_space_map() -> HashMap<OsString, f32> {
         }
     }
 
-    // println!("{:?}", available_space);
+    // log::info!("free spaces: {:?}", available_space);
     available_space
 }

@@ -3,11 +3,11 @@ use super::super::{
     pyenv::Installer,
     status::LoadingSpinner,
     status::{DownloadingStats, StatusUpdate},
-    style::AppStyle,
+    style,
 };
 use fltk::{
     app::Sender,
-    enums::{Align, Color},
+    enums::Align,
     frame::Frame,
     group::{Flex, Group},
     prelude::{GroupExt, WidgetBase, WidgetExt},
@@ -31,9 +31,6 @@ pub struct Step4Tab {
     installer: Option<Installer>,
 }
 
-static GREY_COLOR: Color = Color::from_rgb(200, 200, 200);
-static MESSAGE_COLOR: Color = Color::from_rgb(10, 10, 10);
-
 fn render_job_status(
     title: &str,
     panel: &mut Flex,
@@ -55,7 +52,7 @@ fn render_job_status(
                 .with_label(title)
                 .with_align(Align::Inside | Align::Left);
             message.set_label_size(16);
-            message.set_label_color(GREY_COLOR);
+            message.set_label_color(style::COLOR_GREY);
             job_messages.push(message);
 
             flex.fixed(&Frame::default(), 4);
@@ -67,7 +64,7 @@ fn render_job_status(
 }
 
 impl Step4Tab {
-    pub fn new(group: &mut Group, _style: &AppStyle, sender: Sender<Message>) -> Self {
+    pub fn new(group: &mut Group, sender: Sender<Message>) -> Self {
         let mut panel = Flex::default_fill().column();
 
         panel.resize(group.x(), group.y(), group.w(), group.h());
@@ -109,6 +106,8 @@ impl Step4Tab {
 
         panel.end();
 
+        log::info!("step4 panel created");
+
         Step4Tab {
             panel,
             sender,
@@ -139,7 +138,7 @@ impl Step4Tab {
             Step4Message::JobStart(job_idx) => {
                 self.job_spinners[job_idx].start();
                 let message_label = &mut self.job_messages[job_idx];
-                message_label.set_label_color(MESSAGE_COLOR);
+                message_label.set_label_color(style::COLOR_MESSAGE);
                 message_label.redraw();
             }
             Step4Message::JobSuccess(job_idx) => {
@@ -159,7 +158,13 @@ impl Step4Tab {
     }
 
     pub fn take_installer(&mut self) -> Installer {
-        self.installer.take().unwrap()
+        match self.installer.take() {
+            Some(installer) => installer,
+            None => {
+                log::error!("could not get installer in step4");
+                unreachable!()
+            }
+        }
     }
 }
 

@@ -1,18 +1,15 @@
 use fltk::{
-    enums::{Color, Font},
+    enums::Color,
     frame::Frame,
     group::Flex,
     prelude::{GroupExt, WidgetExt},
 };
 
-use super::super::style::AppStyle;
-
 pub struct PhaseNavBar {
     labels: Vec<Frame>,
     seps: Vec<Frame>,
     phase_state: Vec<PhaseState>,
-    bold_font: Font,
-    normal_font: Font,
+    // normal_font: Font,
     navbar_row: Flex,
 }
 
@@ -28,7 +25,7 @@ impl PhaseNavBar {
     const ACTIVATE_COLOR: Color = Color::from_rgb(113, 36, 107);
     const SUCCESS_COLOR: Color = Color::from_rgb(0, 128, 0);
 
-    pub fn new(style: &AppStyle) -> Self {
+    pub fn new() -> Self {
         static PHASE_TITLES: [&str; 5] = [
             "选择安装目录",
             "安装Python",
@@ -54,7 +51,7 @@ impl PhaseNavBar {
                 .with_label(&title)
                 .with_align(Align::Inside | Align::Left);
             frame.set_label_color(PhaseNavBar::PENDING_COLOR);
-            frame.set_label_font(style.font_zh);
+            // frame.set_label_font(style.font_zh);
             navbar_row.fixed(&frame, PHASE_WIDTHS[i]);
 
             labels.push(frame);
@@ -74,8 +71,7 @@ impl PhaseNavBar {
             labels,
             seps,
             phase_state,
-            normal_font: style.font_zh,
-            bold_font: style.font_bold_zh,
+            // normal_font: style.font_zh,
             navbar_row,
         };
 
@@ -95,7 +91,7 @@ impl PhaseNavBar {
             self.phase_state[prev_idx] = PhaseState::Success;
             let frame = &mut self.labels[prev_idx];
             frame.set_label_color(PhaseNavBar::SUCCESS_COLOR);
-            frame.set_label_font(self.normal_font);
+            // frame.set_label_font(self.normal_font);
 
             self.seps[prev_idx].set_label_color(PhaseNavBar::SUCCESS_COLOR)
         }
@@ -103,6 +99,6 @@ impl PhaseNavBar {
         self.phase_state[idx as usize] = PhaseState::Activate;
         let frame = &mut self.labels[idx as usize];
         frame.set_label_color(PhaseNavBar::ACTIVATE_COLOR);
-        frame.set_label_font(self.bold_font);
+        // frame.set_label_font(self.normal_font);
     }
 }

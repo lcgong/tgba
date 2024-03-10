@@ -1,6 +1,6 @@
 use fltk::{
     app::Sender,
-    enums::{Align, Color},
+    enums::Align,
     frame::Frame,
     group::{Flex, Group},
     misc::Progress,
@@ -10,7 +10,7 @@ use fltk::{
 
 use super::super::status::LoadingSpinner;
 use super::super::status::{DownloadingStats, StatusUpdate};
-use super::super::{myapp::Message, style::AppStyle};
+use super::super::{myapp::Message, style};
 use super::utils::format_scale;
 use crate::pyenv::Installer;
 
@@ -51,15 +51,10 @@ pub struct Step3Tab {
     job_spinner: LoadingSpinner,
 }
 
-static GREY_COLOR: Color = Color::from_rgb(200, 200, 200);
-static MESSAGE_COLOR: Color = Color::from_rgb(10, 10, 10);
-
 impl Step3Tab {
     pub fn new(
         main_win: DoubleWindow,
-        // logs: InstallerLogs,
         group: &mut Group,
-        style: &AppStyle,
         sender: Sender<Message>,
     ) -> Self {
         let mut panel = Flex::default_fill().column();
@@ -94,24 +89,24 @@ impl Step3Tab {
                         .with_label("下载Python程序包")
                         .with_align(Align::Inside | Align::Left);
                     job_message.set_label_size(16);
-                    job_message.set_label_color(MESSAGE_COLOR);
+                    job_message.set_label_color(style::COLOR_MESSAGE);
 
                     job_percent = Frame::default()
                         .with_label("")
                         .with_align(Align::Inside | Align::Right);
                     job_percent.set_label_size(12);
-                    job_percent.set_label_color(MESSAGE_COLOR);
+                    job_percent.set_label_color(style::COLOR_MESSAGE);
                     msg_flex.fixed(&job_percent, 60);
 
                     msg_flex.end();
                 }
 
                 job_progress = Progress::default();
-                job_progress.set_color(GREY_COLOR);
+                job_progress.set_color(style::COLOR_GREY);
                 job_progress.set_frame(fltk::enums::FrameType::FlatBox);
                 job_progress.set_minimum(0.0);
                 job_progress.set_maximum(100.0);
-                job_progress.set_selection_color(style.tgu_color);
+                job_progress.set_selection_color(style::COLOR_TGU);
 
                 flex.fixed(&job_progress, 4);
 
@@ -137,24 +132,24 @@ impl Step3Tab {
                         .with_label("")
                         .with_align(Align::Inside | Align::Left);
                     downloading_message.set_label_size(12);
-                    downloading_message.set_label_color(GREY_COLOR);
+                    downloading_message.set_label_color(style::COLOR_GREY);
 
                     downloading_speed = Frame::default()
                         .with_label("")
                         .with_align(Align::Inside | Align::Right);
                     downloading_speed.set_label_size(12);
-                    downloading_speed.set_label_color(MESSAGE_COLOR);
+                    downloading_speed.set_label_color(style::COLOR_MESSAGE);
                     msg_flex.fixed(&downloading_speed, 80);
 
                     msg_flex.end();
                 }
 
                 downloading_progress = Progress::default();
-                downloading_progress.set_color(GREY_COLOR);
+                downloading_progress.set_color(style::COLOR_GREY);
                 downloading_progress.set_frame(fltk::enums::FrameType::FlatBox);
                 downloading_progress.set_minimum(0.0);
                 downloading_progress.set_maximum(100.0);
-                downloading_progress.set_selection_color(style.tgu_color);
+                downloading_progress.set_selection_color(style::COLOR_TGU);
 
                 flex.fixed(&downloading_progress, 3);
 
@@ -170,6 +165,8 @@ impl Step3Tab {
         Frame::default();
 
         panel.end();
+
+        log::info!("step3 panel created");
 
         Step3Tab {
             main_win,
@@ -291,7 +288,7 @@ impl Step3Tab {
 
         let msg = format!("{title}, {total_size}");
         self.downloading_message.set_label(&msg);
-        self.downloading_message.set_label_color(MESSAGE_COLOR);
+        self.downloading_message.set_label_color(style::COLOR_MESSAGE);
         self.downloading_speed.set_label(&format!("{speed}/s"));
         self.downloading_progress.set_value(percentage);
     }

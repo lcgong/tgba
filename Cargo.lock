@@ -1810,7 +1810,7 @@ dependencies = [
 
 [[package]]
 name = "tgba-installer"
-version = "0.3.1"
+version = "0.3.2-202403"
 dependencies = [
  "anyhow",
  "bzip2",

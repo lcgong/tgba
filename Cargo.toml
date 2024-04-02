@@ -1,6 +1,6 @@
 [package]
 name = "tgba-installer"
-version = "0.3.2-202403"
+version = "0.3.3-202403"
 edition = "2021"
 
 build = "build.rs"

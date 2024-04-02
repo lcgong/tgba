@@ -10,6 +10,8 @@ geopandas
 
 matplotlib
 seaborn
+pyecharts
+plotly
 
 statsmodels
 linearmodels

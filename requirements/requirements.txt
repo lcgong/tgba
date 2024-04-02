@@ -8,10 +8,12 @@ xlrd
 pandas
 geopandas
 
+# data-visualization
 matplotlib
 seaborn
 pyecharts
 plotly
+panel
 
 statsmodels
 linearmodels
@@ -22,14 +24,15 @@ scikit-learn
 xgboost
 mlxtend
 
-torch
-torchvision
+# torch
+# torchvision
 
 pulp
 mip
 
 jieba
 python-docx
+jinja2
 
 duckdb
 magic-duckdb

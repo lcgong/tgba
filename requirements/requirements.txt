@@ -43,3 +43,7 @@ jupyterlab-lsp
 pylint
 autopep8
 ruff
+jupyterlab-code-formatter
+black
+
+tushare 

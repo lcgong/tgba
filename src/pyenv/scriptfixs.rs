@@ -11,7 +11,20 @@ pub fn fix_patches(installer: &Installer) -> Result<()> {
 
     disable_labtensions(installer)?;
 
+    disable_lsp_diagnostics(installer)?;
+
     fix_launcher_logo_svg(installer)?;
+
+    Ok(())
+}
+
+pub fn clean_cached_dir(installer: &Installer) -> Result<()> {
+
+    let mut cached_dir = installer.cached_packages_dir.clone();
+
+    if cached_dir.exists() {
+        std::fs::remove_dir_all(cached_dir)?;
+    }
 
     Ok(())
 }
@@ -150,22 +163,44 @@ fn disable_labtensions(installer: &Installer) -> Result<()> {
     Ok(())
 }
 
+fn disable_lsp_diagnostics(installer: &Installer) -> Result<()> {
+    let mut settings_path = installer.venv_dir.clone();
+    settings_path.extend(["share", "jupyter", "lab", "settings"]);
+    if let Err(err) = std::fs::create_dir_all(&settings_path) {
+        bail!(
+            "创建jupyterlab配置目录{}失败: {}",
+            settings_path.display(),
+            err
+        )
+    }
+    settings_path.push("overrides.json");
 
+    let config = r#"
+    {
+        "@jupyter-lsp/jupyterlab-lsp:diagnostics": {
+            "defaultSeverity": "Error",
+            "disable": true
+        }
+    } 
+"#;
+
+    use std::io::Write;
+    let mut file = File::create(&settings_path)?;
+    if let Err(err) = writeln!(file, "{}", config) {
+        bail!("写入文件{}错误: {}", settings_path.display(), err);
+    }
+
+    Ok(())
+}
 
 fn fix_launcher_logo_svg(installer: &Installer) -> Result<()> {
     let mut logo_svg_file = installer.venv_dir.clone();
-    logo_svg_file.extend([
-        "share",
-        "jupyter",
-        "kernels",
-        "python3",
-        "logo-svg.svg",
-    ]);
+    logo_svg_file.extend(["share", "jupyter", "kernels", "python3", "logo-svg.svg"]);
 
     if logo_svg_file.exists() {
         std::fs::remove_file(logo_svg_file)?;
         log::info!("删除logo-svg.svg，解决launcher无法正常显示Bug");
     }
-    
+
     Ok(())
 }

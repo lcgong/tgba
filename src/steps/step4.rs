@@ -222,7 +222,8 @@ impl StatusUpdate for Step4Collector {
 
 pub async fn step4_run(mut installer: Installer, mut collector: Step4Collector) {
     use super::super::pyenv::{
-        create_winlnk, fix_patches, offline_install_requirements, set_platform_info,
+        clean_cached_dir, create_winlnk, fix_patches, offline_install_requirements,
+        set_platform_info,
     };
 
     if installer.platform_tag.is_none() {
@@ -257,6 +258,12 @@ pub async fn step4_run(mut installer: Installer, mut collector: Step4Collector) 
         collector.job_error(format!("修正配置发生错误: {err}"));
         return;
     };
+
+    if let Err(err) = clean_cached_dir(&installer) {
+        collector.job_error(format!("删除下载临时文件发生错误: {err}"));
+        return;
+    };
+
     collector.job_success();
 
     collector.done(installer);

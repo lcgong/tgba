@@ -23,4 +23,5 @@ pub use requirements::{
 pub use venv::{ensure_python_dist, ensure_venv, set_platform_info};
 
 pub use scriptfixs::fix_patches;
+pub use scriptfixs::clean_cached_dir;
 pub use winlnk::create_winlnk;

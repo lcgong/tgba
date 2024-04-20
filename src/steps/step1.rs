@@ -193,7 +193,7 @@ fn check_availabel_space(
     let path = PathBuf::from(path);
     use std::path::Component::Prefix;
 
-    let expected_space = 2.9f32;
+    let expected_space = 1.6f32;
 
     if let Some(Prefix(prefix)) = path.components().next() {
         let driver = prefix.as_os_str().to_os_string();

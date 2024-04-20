@@ -1,3 +1,8 @@
+# v0.3.5  2024-04-21
+* 增加tushare库
+* 增加jupyterlab-code-formater扩展
+* 禁用jupyterlab-lsp的代码样式自动检查功能，避免太多的警告虚线
+* 安装后不再默认保留临时Python程序包文件
 
 # v0.3.4  2024-04-01
 * 增加数据可视化panel

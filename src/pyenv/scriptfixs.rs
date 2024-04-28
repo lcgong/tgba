@@ -20,7 +20,7 @@ pub fn fix_patches(installer: &Installer) -> Result<()> {
 
 pub fn clean_cached_dir(installer: &Installer) -> Result<()> {
 
-    let mut cached_dir = installer.cached_packages_dir.clone();
+    let cached_dir = installer.cached_packages_dir.clone();
 
     if cached_dir.exists() {
         std::fs::remove_dir_all(cached_dir)?;
@@ -164,6 +164,8 @@ fn disable_labtensions(installer: &Installer) -> Result<()> {
 }
 
 fn disable_lsp_diagnostics(installer: &Installer) -> Result<()> {
+    // https://jupyterlab.readthedocs.io/en/stable/user/directories.html#overrides-json
+
     let mut settings_path = installer.venv_dir.clone();
     settings_path.extend(["share", "jupyter", "lab", "settings"]);
     if let Err(err) = std::fs::create_dir_all(&settings_path) {

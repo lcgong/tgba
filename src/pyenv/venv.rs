@@ -143,6 +143,7 @@ pub async fn ensure_venv(installer: &Installer, status_updater: &impl StatusUpda
     venv_cmd.creation_flags(CREATE_NO_WINDOW);
     venv_cmd.arg("-mvenv");
     venv_cmd.arg(&venv_dir);
+    
 
     let status = match venv_cmd.status() {
         Ok(status) => status,

@@ -145,6 +145,7 @@ impl Step2Tab {
     pub fn start(&mut self, target_dir: &str, python_version: Option<String>) {
         let mut collector = StatusCollector::new(self.sender.clone(), 0);
 
+        log::info!("目标安装路径：{target_dir}");
         let installer = match Installer::new(PathBuf::from(target_dir), python_version) {
             Ok(installer) => installer,
             Err(err) => {
@@ -253,6 +254,7 @@ impl StatusCollector {
     }
 
     pub fn job_error(&self, err: String) {
+        log::error!("{err}");
         self.send(Step2Message::ErrorJob(self.job_idx, err));
     }
 

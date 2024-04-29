@@ -513,9 +513,9 @@ dependencies = [
 
 [[package]]
 name = "fltk"
-version = "1.4.25"
+version = "1.4.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59fa214b5ad440215f11c6099697c7118c63c08c140636b405d6a14712640491"
+checksum = "c1c0639e68289e58cdbc1cf93713b2e9b2aab551bedd4616ae51ce55aa8054e6"
 dependencies = [
  "bitflags 2.4.0",
  "crossbeam-channel",
@@ -526,9 +526,9 @@ dependencies = [
 
 [[package]]
 name = "fltk-sys"
-version = "1.4.25"
+version = "1.4.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e0af8e28f3915d1362de406f05f5b917d5ce678e818ee403b32edc18fc25708b"
+checksum = "f4d8e7a6651c3a838f9dfffdfc415543aecb843f36d062bd2e3f6467121a5d65"
 dependencies = [
  "cmake",
 ]
@@ -1810,7 +1810,7 @@ dependencies = [
 
 [[package]]
 name = "tgba-installer"
-version = "0.3.5-202404"
+version = "0.3.6-202404"
 dependencies = [
  "anyhow",
  "bzip2",
